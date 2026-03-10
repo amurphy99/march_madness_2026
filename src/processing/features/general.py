@@ -15,8 +15,8 @@ import numpy  as np
 import pandas as pd
 
 # From this project
-from ...config import TEAM_BOX_SCORE_COLUMNS
-
+from ...config        import TEAM_BOX_SCORE_COLUMNS
+from ...utils.logging import RESET, BOLD, UNBOLD, BLUE
 
 # ================================================================================
 # Add a seed column to the game data using the seed data
@@ -47,7 +47,7 @@ def prep_for_embeddings(
         seed_for_team, 
         team_ID_to_int : dict[str, int] = None, 
         do_stats       : bool           = True, 
-        verbose        : bool           = False,
+        verbose        : int            = 0,
 ):
     """
     `team_ID_to_int` => Generated when we call this for the training data, and then we provide it, 
@@ -73,7 +73,7 @@ def prep_for_embeddings(
 
     # Concatenate the two new columns into a single Series and get the uniques for a list of all teams
     unique_teams = pd.unique(pd.concat([df["W_year_ID"], df["L_year_ID"]]))
-    print(f"Number of teams: {len(unique_teams):,}")
+    if verbose: print(f"Number of teams: {BLUE}{len(unique_teams):5,}{RESET}")
     
     # --------------------------------------------------------------------------------
     # Prepare box score stats
@@ -110,8 +110,6 @@ def prep_for_embeddings(
     return df, unique_teams, team_ID_to_int
 
 
-
-
 # ================================================================================
 # Prepare the data
 # ================================================================================
@@ -120,7 +118,7 @@ def prepare_data(df: pd.DataFrame, *, do_stats: bool = True):
     data = []
     
     # Iterate through all games
-    for idx, game in df.iterrows():
+    for _, game in df.iterrows():
         # --------------------------------------------------------------------------------
         # Get everything from the data that I need
         # --------------------------------------------------------------------------------
