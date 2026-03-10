@@ -7,3 +7,7 @@ data/*
 
 # VS Code
 .vscode/*
+
+# Code
+*.ipynb_checkpoints
+*.pyc
