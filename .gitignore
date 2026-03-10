@@ -5,6 +5,11 @@
 data/*
 !data/README.md
 
+# Notebooks
+notebooks/*
+!notebooks/README.md
+
+
 # VS Code
 .vscode/*
 
