@@ -38,7 +38,7 @@ def load_data(DATA_PATH: str, TOURNEY: str, *, num_past_years: int = 5, verbose 
     if verbose: 
         print(
             f"Loaded data for {BOLD}{BLUE}{'MENS' if (TOURNEY=='M') else 'WOMENS'}{RESET} tournament. \n"
-            f"Seasons included (last {BOLD}{BLUE}{num_past_years}{RESET} years): {BLUE}{last_five_seasons}{RESET}"
+            f"Seasons included (last {BLUE}{num_past_years}{RESET} years): {BLUE}{last_five_seasons}{RESET} \n"
         )
 
     # --------------------------------------------------------------------------------
@@ -48,9 +48,9 @@ def load_data(DATA_PATH: str, TOURNEY: str, *, num_past_years: int = 5, verbose 
     seeds, unique_seeds, seed_for_team = prep_seeds_df(seeds)
 
     # Prepare each DataFrame for embeddings (give teams integer IDs)
-    rs_df, rs_teams, team_ID_to_int = prep_for_embeddings(rs_df, seed_for_team)
-    st_df, st_teams, _ = prep_for_embeddings(st_df, seed_for_team, team_ID_to_int=team_ID_to_int, do_stats=False)
-    tr_df, tr_teams, _ = prep_for_embeddings(tr_df, seed_for_team, team_ID_to_int=team_ID_to_int)
+    rs_df, rs_teams, team_ID_to_int = prep_for_embeddings(rs_df, seed_for_team, verbose=verbose)
+    st_df, st_teams, _              = prep_for_embeddings(st_df, seed_for_team, verbose=verbose, team_ID_to_int=team_ID_to_int, do_stats=False)
+    tr_df, tr_teams, _              = prep_for_embeddings(tr_df, seed_for_team, verbose=verbose, team_ID_to_int=team_ID_to_int)
 
     # Call the function
     rs_data = prepare_data(rs_df, verbose=verbose)
@@ -61,9 +61,9 @@ def load_data(DATA_PATH: str, TOURNEY: str, *, num_past_years: int = 5, verbose 
     if verbose: 
         print(
             "\n"
-            f"Regular Season Games:       {len(rs_data):7,} \n"
-            f"Secondary Tournament Games: {len(st_data):7,} \n"
-            f"NCAA Tournament Games:      {len(tr_data):7,}"
+            f"Regular Season Games:       {BLUE}{len(rs_data):7,}{RESET} \n"
+            f"Secondary Tournament Games: {BLUE}{len(st_data):7,}{RESET} \n"
+            f"NCAA Tournament Games:      {BLUE}{len(tr_data):7,}{RESET}"
         )
 
     # Return **everything**

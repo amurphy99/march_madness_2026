@@ -102,7 +102,7 @@ def prep_for_embeddings(
 
         # Combine them into one list
         team_box_score_columns = shot_stats + stat_columns
-        if verbose:
+        if verbose > 1:
             print(f"\n# of stats per team: {len(team_box_score_columns)}")
             print(team_box_score_columns)
     
@@ -113,7 +113,7 @@ def prep_for_embeddings(
 # ================================================================================
 # Prepare the data
 # ================================================================================
-def prepare_data(df: pd.DataFrame, *, do_stats: bool = True):
+def prepare_data(df: pd.DataFrame, *, do_stats: bool = True, verbose: int = 0):
     # Store the formatted data
     data = []
     
