@@ -66,6 +66,7 @@ def get_teamID_to_int_dict(df: pd.DataFrame) -> dict[str, int]:
 def convert_teamIDs_to_int(df: pd.DataFrame, team_ID_to_int: dict[str, int]) -> pd.DataFrame:
     df["W_year_ID"] = df["WYearTeamID"].map(lambda team_ID: team_ID_to_int.get(team_ID, 0))
     df["L_year_ID"] = df["LYearTeamID"].map(lambda team_ID: team_ID_to_int.get(team_ID, 0))
+    return df
 
 
 

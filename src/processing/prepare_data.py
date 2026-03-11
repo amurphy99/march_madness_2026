@@ -67,9 +67,9 @@ def load_data(
     team_ID_to_int = get_teamID_to_int_dict(rs_df)
 
     if convert_IDs_to_ints:
-        rs_df = convert_teamIDs_to_int(rs_df)
-        st_df = convert_teamIDs_to_int(st_df)
-        tr_df = convert_teamIDs_to_int(tr_df)
+        rs_df = convert_teamIDs_to_int(rs_df, team_ID_to_int)
+        st_df = convert_teamIDs_to_int(st_df, team_ID_to_int)
+        tr_df = convert_teamIDs_to_int(tr_df, team_ID_to_int)
 
     # Return all data
     return (
