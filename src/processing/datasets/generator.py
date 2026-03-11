@@ -104,7 +104,7 @@ def build_examples(
 
         # Put the full example together
         examples.append({
-            # Additional Info
+            # Additional info
             "season"  : int(row["Season"]),
             "daynum"  : int(row["DayNum"]),
             "row_idx" : int(row_idx),
