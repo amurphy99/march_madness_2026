@@ -100,7 +100,7 @@ def history_to_arrays(history_deque: deque, history_len: int = DEFAULT_HISTORY_L
 
         # Numeric box score stats for both teams & any extra stats to include (margin, loc, num_ot)
         hist_numeric[j, :] = np.concatenate([
-            entry["team_stats"], entry[ "opp_stats"],
+            entry["team_stats"], entry["opp_stats"],
             np.array([entry["margin"], entry["loc"], entry["num_ot"]], dtype=np.float32)
         ])
 
