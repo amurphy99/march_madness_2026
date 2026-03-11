@@ -22,11 +22,10 @@ from   .history import make_team_history_entry, history_to_arrays
 
 
 # --------------------------------------------------------------------------------
-# Data Columns
+# Build current-game targets from Team A perspective
 # --------------------------------------------------------------------------------
 def make_current_game_targets(row: pd.Series, teamA_ID, teamB_ID) -> tuple[np.ndarray, np.ndarray, np.float32]:
     """
-    Build current-game targets from Team A perspective.
     Returns the two box scores separately so we can still flip them if needed.
     """
     # To match the two teams with the winner and loser
