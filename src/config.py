@@ -9,3 +9,8 @@ Configuration parameters / constants for the project.
 TEAM_BOX_SCORE_COLUMNS = ["2FGM", "2FGA", "3FGM", "3FGA", "FTM", "FTA", "OR", "DR", "Ast", "TO", "Stl", "Blk", "PF"]
 
 
+# Default Config
+DEFAULT_PAST_YEARS = 7
+
+
+

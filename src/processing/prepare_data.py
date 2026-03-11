@@ -9,16 +9,16 @@ TOURNEY refers to which tournament's data we should load: either "M" or "W".
 import pandas as pd
 
 # From this project
-from .features.general       import prep_seeds_df, prep_for_embeddings, prepare_data
-from .features.preprocessing import apply_year_team_IDs, apply_box_score_preprocessing
-from ..utils.logging   import RESET, BOLD, UNBOLD, BLUE
-
+from  .features.general       import prep_seeds_df, prep_for_embeddings, prepare_data
+from  .features.preprocessing import apply_year_team_IDs, apply_box_score_preprocessing
+from ..utils.logging          import RESET, BOLD, UNBOLD, BLUE
+from ..config                 import DEFAULT_PAST_YEARS
 
 
 # ================================================================================
 # Load the raw Kaggle data
 # ================================================================================
-def load_data(DATA_PATH: str, TOURNEY: str, *, num_past_years: int = 5, verbose : int = 1):
+def load_data(DATA_PATH: str, TOURNEY: str, *, num_past_years: int = DEFAULT_PAST_YEARS, verbose : int = 1):
     # --------------------------------------------------------------------------------
     # 1) Load the raw Kaggle data
     # --------------------------------------------------------------------------------
