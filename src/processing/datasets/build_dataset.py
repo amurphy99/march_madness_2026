@@ -36,18 +36,29 @@ class MarchMadnessHistoryDataset(Dataset):
         if indices is None: self.indices = np.arange (data.num_examples, dtype=np.int64)
         else:               self.indices = np.asarray(indices,           dtype=np.int64)
 
+    # Double the dataset size during validation for deterministic flipping
     def __len__(self) -> int:
-        return len(self.indices)
+        if self.training: return len(self.indices)
+        else:             return len(self.indices) * 2
 
     # ================================================================================
     # Sampling
     # ================================================================================
     def __getitem__(self, i: int) -> dict[str, torch.Tensor]:
         # --------------------------------------------------------------------------------
+        # Determine actual index and whether to flip
+        # --------------------------------------------------------------------------------
+        if self.training:
+            idx     = int(self.indices[i])
+            do_flip = random.random() < self.flip_prob
+        else:
+            # Map index to data, and deterministically flip every odd index
+            idx = int(self.indices[i // 2])
+            do_flip = (i % 2 == 1)
+
+        # --------------------------------------------------------------------------------
         # Pull numpy data
         # --------------------------------------------------------------------------------
-        idx = int(self.indices[i])
-
         # Team IDs
         teamA_id = self.data.teamA_id[idx]
         teamB_id = self.data.teamB_id[idx]
@@ -68,10 +79,10 @@ class MarchMadnessHistoryDataset(Dataset):
         target_win             = np.float32(self.data.target_win [idx])
 
         # --------------------------------------------------------------------------------
-        # Flip 50% of the data
+        # Flip data if triggered
         # --------------------------------------------------------------------------------
         flipped = False
-        if self.training and random.random() < self.flip_prob:
+        if do_flip:
             flipped = True
 
             # Flip IDs
@@ -108,7 +119,7 @@ class MarchMadnessHistoryDataset(Dataset):
             "teamB_hist_opp_ids" : torch.tensor(teamB_hist_opp_ids, dtype=torch.long   ),
             "teamB_hist_mask"    : torch.tensor(teamB_hist_mask,    dtype=torch.float32),
 
-            # Flip targets
+            # Targets
             "target_box_score" : torch.tensor(target_box_score, dtype=torch.float32),
             "target_win"       : torch.tensor(target_win,       dtype=torch.float32),
 
