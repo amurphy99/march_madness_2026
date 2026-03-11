@@ -53,6 +53,25 @@ def _handle_field_goals(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
+# --------------------------------------------------------------------------------
+# TeamID to integer conversion
+# --------------------------------------------------------------------------------
+def get_teamID_to_int_dict(df: pd.DataFrame) -> dict[str, int]:
+    # Generate the IDs from the reference DataFrame
+    unique_teams_str = pd.unique(pd.concat([df["WYearTeamID"], df["LYearTeamID"]]))
+    team_ID_to_int   = {team_str: idx+1 for idx, team_str in enumerate(unique_teams_str)}
+    return team_ID_to_int
+
+# Convert the DataFrame ID columns
+def convert_teamIDs_to_int(df: pd.DataFrame, team_ID_to_int: dict[str, int]) -> pd.DataFrame:
+    df["W_year_ID"] = df["WYearTeamID"].map(lambda team_ID: team_ID_to_int.get(team_ID, 0))
+    df["L_year_ID"] = df["LYearTeamID"].map(lambda team_ID: team_ID_to_int.get(team_ID, 0))
+
+
+
+
+
+
 # ================================================================================
 # Apply all preprocessing methods
 # ================================================================================

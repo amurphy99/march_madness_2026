@@ -11,6 +11,7 @@ import pandas as pd
 # From this project
 from  .features.general       import prep_seeds_df, prep_for_embeddings, prepare_data
 from  .features.preprocessing import apply_year_team_IDs, apply_box_score_preprocessing
+from  .features.preprocessing import get_teamID_to_int_dict, convert_teamIDs_to_int
 from ..utils.logging          import RESET, BOLD, UNBOLD, BLUE
 from ..config                 import DEFAULT_PAST_YEARS
 
@@ -18,7 +19,14 @@ from ..config                 import DEFAULT_PAST_YEARS
 # ================================================================================
 # Load the raw Kaggle data
 # ================================================================================
-def load_data(DATA_PATH: str, TOURNEY: str, *, num_past_years: int = DEFAULT_PAST_YEARS, verbose : int = 1):
+def load_data(
+        DATA_PATH: str, 
+        TOURNEY  : str, 
+        *, 
+        num_past_years      : int  = DEFAULT_PAST_YEARS, 
+        verbose             : int  = 1,
+        convert_IDs_to_ints : bool = True, # If we should already convert the IDs
+):
     # --------------------------------------------------------------------------------
     # 1) Load the raw Kaggle data
     # --------------------------------------------------------------------------------
@@ -53,9 +61,19 @@ def load_data(DATA_PATH: str, TOURNEY: str, *, num_past_years: int = DEFAULT_PAS
             f"Seasons included (last {BLUE}{num_past_years}{RESET} years): {BLUE}{last_five_seasons}{RESET} \n"
         )
 
+    # --------------------------------------------------------------------------------
+    # 3) Convert string team IDs to integer IDs
+    # --------------------------------------------------------------------------------
+    team_ID_to_int = get_teamID_to_int_dict(rs_df)
+
+    if convert_IDs_to_ints:
+        rs_df = convert_teamIDs_to_int(rs_df)
+        st_df = convert_teamIDs_to_int(st_df)
+        tr_df = convert_teamIDs_to_int(tr_df)
+
     # Return all data
     return (
-        rs_df, st_df, tr_df, seeds
+        rs_df, st_df, tr_df, seeds, team_ID_to_int
     )
 
 
@@ -65,7 +83,9 @@ def load_data(DATA_PATH: str, TOURNEY: str, *, num_past_years: int = DEFAULT_PAS
 # ================================================================================
 def load_training_data_v1(DATA_PATH: str, TOURNEY: str, *, num_past_years: int = 5, verbose : int = 1):
     # 1) Load the raw Kaggle data
-    rs_df, st_df, tr_df, seeds = load_data(DATA_PATH, TOURNEY, num_past_years=num_past_years, verbose=verbose)
+    rs_df, st_df, tr_df, seeds, _ = load_data(
+        DATA_PATH, TOURNEY, num_past_years=num_past_years, verbose=verbose, convert_IDs_to_ints=False
+    )
 
     # --------------------------------------------------------------------------------
     # 2) Apply data preparation code
