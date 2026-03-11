@@ -13,8 +13,9 @@ TEAM_BOX_SCORE_COLUMNS = ["Score","2FGM", "2FGA", "3FGM", "3FGA", "FTM", "FTA", 
 W_TEAM_STAT_COLS = [f"W{stat}" for stat in TEAM_BOX_SCORE_COLUMNS]
 L_TEAM_STAT_COLS = [f"W{stat}" for stat in TEAM_BOX_SCORE_COLUMNS]
 
+# Combined box score
 BOX_SCORE_COLS = W_TEAM_STAT_COLS + L_TEAM_STAT_COLS
-
+BOX_SCORE_DIM  = len(BOX_SCORE_COLS)
 
 # --------------------------------------------------------------------------------
 # Default Config
