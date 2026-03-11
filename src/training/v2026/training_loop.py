@@ -159,10 +159,10 @@ def train_model_v2(
     # --------------------------------------------------------------------------------
     if first_epoch_no_train:
         # Train on regular season
-        train_metrics = run_epoch(model, train_loader, **rs_tr_args)
+        train_metrics = run_epoch(model, train_loader, optimizer=optimizer, **rs_tr_args)
 
         # Secondary tournaments (no box score data)
-        if secondary_loader is not None: secondary_metrics = run_epoch(model, secondary_loader, **secondary)
+        if secondary_loader is not None: secondary_metrics = run_epoch(model, secondary_loader, optimizer=optimizer, **secondary)
         else:                            secondary_metrics = {}
 
         # Validation (NCAA tournament)
@@ -186,10 +186,10 @@ def train_model_v2(
     # --------------------------------------------------------------------------------
     for epoch in range(1, num_epochs+1):
         # 1) Train on regular season
-        train_metrics = run_epoch(model, train_loader, **rs_tr_args)
+        train_metrics = run_epoch(model, train_loader, optimizer=optimizer, **rs_tr_args)
 
         # 2) Train on secondary tournament if provided (classification-only)
-        if secondary_loader is not None: secondary_metrics = run_epoch(model, secondary_loader, **secondary)
+        if secondary_loader is not None: secondary_metrics = run_epoch(model, secondary_loader, optimizer=optimizer, **secondary)
         else:                            secondary_metrics = {}
 
         # 3) Validation (NCAA tournament)
