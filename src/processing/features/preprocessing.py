@@ -28,7 +28,7 @@ def apply_year_team_IDs(df: pd.DataFrame) -> pd.DataFrame:
 
         # Create updated ID columns for each variation found
         if f"{prefix}TeamID" in df.columns:
-            df[f"{prefix}YearTeamID"] = df["Season"].astype(str) + "_" + df[f"{[prefix]}TeamID"].astype(str)
+            df[f"{prefix}YearTeamID"] = df["Season"].astype(str) + "_" + df[f"{prefix}TeamID"].astype(str)
 
     # Return the updated DataFrame
     return df
@@ -56,14 +56,17 @@ def _handle_field_goals(df: pd.DataFrame) -> pd.DataFrame:
 # ================================================================================
 # Apply all preprocessing methods
 # ================================================================================
-def apply_box_score_preprocessing(df: pd.DataFrame) -> pd.DataFrame:
+def apply_box_score_preprocessing(df: pd.DataFrame, do_box=True) -> pd.DataFrame:
     df = df.copy()
 
     # 1) Set the Year-Team IDs
     df = apply_year_team_IDs(df)
 
-    # 2) Separate 2s and 3s
-    df = _handle_field_goals(df)
+    # 2) Separate 2s and 3s (secondary tournament results have no box score)
+    if do_box: df = _handle_field_goals(df)
+
+    # 3) Sort by "Season" and "DayNum" (oldest games are first)
+    df = df.sort_values(by=["Season", "DayNum"], ascending=True)
 
     # Return with changes
     return df

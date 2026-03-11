@@ -42,7 +42,7 @@ def load_data(DATA_PATH: str, TOURNEY: str, *, num_past_years: int = DEFAULT_PAS
 
     # Year-Team IDs + other preprocessing for the box score data
     rs_df = apply_box_score_preprocessing(rs_df)
-    st_df = apply_box_score_preprocessing(st_df)
+    st_df = apply_box_score_preprocessing(st_df, do_box=False)
     tr_df = apply_box_score_preprocessing(tr_df)
     seeds = apply_year_team_IDs(seeds)
 
