@@ -84,7 +84,7 @@ class MarchMadnessModel_v2(nn.Module):
 
         # Zero out padded timesteps
         mask         = hist_mask.unsqueeze(-1)         # (B, T, 1)
-        opp_emb      = opp_emb * mask
+        opp_emb      = opp_emb      * mask
         hist_numeric = hist_numeric * mask
 
         # Concatenate numeric features + opponent embeddings

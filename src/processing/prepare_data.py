@@ -46,6 +46,8 @@ def load_data(
 
     # Filter the DataFrame to only rows where the Season is in the last 5 seasons
     last_five_seasons = unique_seasons[-num_past_years:]
+    rs_df = rs_df[rs_df["Season"].astype(int).isin(last_five_seasons)]
+    st_df = st_df[st_df["Season"].astype(int).isin(last_five_seasons)]
     tr_df = tr_df[tr_df["Season"].astype(int).isin(last_five_seasons)]
 
     # Year-Team IDs + other preprocessing for the box score data

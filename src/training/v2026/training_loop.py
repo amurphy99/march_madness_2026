@@ -170,7 +170,7 @@ def train_model_v2(
         else:                      val_metrics = {}
 
         if verbose:
-            _print_epoch_summary(0, num_epochs, train_metrics, secondary_metrics, val_metrics)
+            _print_epoch_summary(0, num_epochs+1, train_metrics, secondary_metrics, val_metrics)
 
         # Update history
         history.append({
@@ -201,7 +201,7 @@ def train_model_v2(
 
         # Print summary
         if verbose:
-            _print_epoch_summary(epoch, num_epochs, train_metrics, secondary_metrics, val_metrics)
+            _print_epoch_summary(epoch, num_epochs+1, train_metrics, secondary_metrics, val_metrics)
 
         # Save best model
         if save_best and val_loader is not None:
