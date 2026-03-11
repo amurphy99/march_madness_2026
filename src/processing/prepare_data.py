@@ -3,36 +3,48 @@ Prepare training, validation, and/or testing data.
 --------------------------------------------------------------------------------
 `src.processing.prepare_data`
 
+TOURNEY refers to which tournament's data we should load: either "M" or "W".
+
 """
 import pandas as pd
 
 # From this project
-from .features.general import prep_seeds_df, prep_for_embeddings, prepare_data
+from .features.general       import prep_seeds_df, prep_for_embeddings, prepare_data
+from .features.preprocessing import apply_year_team_IDs, apply_box_score_preprocessing
 from ..utils.logging   import RESET, BOLD, UNBOLD, BLUE
 
+
+
 # ================================================================================
-# Load in the game data and the seed data
+# Load the raw Kaggle data
 # ================================================================================
 def load_data(DATA_PATH: str, TOURNEY: str, *, num_past_years: int = 5, verbose : int = 1):
-    """
-    TOURNEY refers to which tournament's data we should load: either "M" or "W"
-    """
     # --------------------------------------------------------------------------------
     # 1) Load the raw Kaggle data
     # --------------------------------------------------------------------------------
+    # Game box score results
     rs_df = pd.read_csv(f"{DATA_PATH}/{TOURNEY}RegularSeasonDetailedResults.csv")
     st_df = pd.read_csv(f"{DATA_PATH}/{TOURNEY}SecondaryTourneyCompactResults.csv")
     tr_df = pd.read_csv(f"{DATA_PATH}/{TOURNEY}NCAATourneyDetailedResults.csv")
+
+    # Other data to use (Kaggle-provided seeds, etc.)
     seeds = pd.read_csv(f"{DATA_PATH}/{TOURNEY}NCAATourneySeeds.csv")
 
+    # --------------------------------------------------------------------------------
+    # 2) Apply additional processing methods (team-year ID creation, etc.)
+    # --------------------------------------------------------------------------------
     # Convert the Season column to ints (if they aren't already), then get unique values and sort them.
     unique_seasons = sorted(tr_df["Season"].astype(int).unique())
 
-    # Get the last X seasons (the highest values)
+    # Filter the DataFrame to only rows where the Season is in the last 5 seasons
     last_five_seasons = unique_seasons[-num_past_years:]
-
-    # Filter the DataFrame to only rows where the Season is in the last 5 seasons.
     tr_df = tr_df[tr_df["Season"].astype(int).isin(last_five_seasons)]
+
+    # Year-Team IDs + other preprocessing for the box score data
+    rs_df = apply_box_score_preprocessing(rs_df)
+    st_df = apply_box_score_preprocessing(st_df)
+    tr_df = apply_box_score_preprocessing(tr_df)
+    seeds = apply_year_team_IDs(seeds)
 
     # Print some info about the data
     if verbose: 
@@ -40,6 +52,20 @@ def load_data(DATA_PATH: str, TOURNEY: str, *, num_past_years: int = 5, verbose 
             f"Loaded data for {BOLD}{BLUE}{'MENS' if (TOURNEY=='M') else 'WOMENS'}{RESET} tournament. \n"
             f"Seasons included (last {BLUE}{num_past_years}{RESET} years): {BLUE}{last_five_seasons}{RESET} \n"
         )
+
+    # Return all data
+    return (
+        rs_df, st_df, tr_df, seeds
+    )
+
+
+
+# ================================================================================
+# Load in the game data and the seed data
+# ================================================================================
+def load_training_data_v1(DATA_PATH: str, TOURNEY: str, *, num_past_years: int = 5, verbose : int = 1):
+    # 1) Load the raw Kaggle data
+    rs_df, st_df, tr_df, seeds = load_data(DATA_PATH, TOURNEY, num_past_years=num_past_years, verbose=verbose)
 
     # --------------------------------------------------------------------------------
     # 2) Apply data preparation code
