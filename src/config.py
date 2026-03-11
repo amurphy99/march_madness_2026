@@ -17,6 +17,9 @@ L_TEAM_STAT_COLS = [f"W{stat}" for stat in TEAM_BOX_SCORE_COLUMNS]
 BOX_SCORE_COLS = W_TEAM_STAT_COLS + L_TEAM_STAT_COLS
 BOX_SCORE_DIM  = len(BOX_SCORE_COLS)
 
+# Current numeric historical data dimensions (both team box scores + three extra stats: margin, loc, num_ot)
+HIST_NUMERIC_DIM = len(BOX_SCORE_COLS) + 3
+
 # --------------------------------------------------------------------------------
 # Default Config
 # --------------------------------------------------------------------------------
