@@ -29,3 +29,8 @@ DEFAULT_PAST_YEARS = 7
 # Number of previous games to store in each team's history
 DEFAULT_HISTORY_LEN = 10
 
+# --------------------------------------------------------------------------------
+# Default Config
+# --------------------------------------------------------------------------------
+# Maximum possible Elo change from a single game
+ELO_K = 100.0

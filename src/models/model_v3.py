@@ -26,7 +26,7 @@ class MarchMadnessModel_v3(nn.Module):
         history_len      = DEFAULT_HISTORY_LEN,
         hist_hidden_dim  = 64,
         hist_out_dim     = 64,
-        dropout          = 0.3, # Increased default dropout
+        dropout          = 0.3,
         box_score_dim    = BOX_SCORE_DIM,
     ):
         super().__init__()
@@ -50,8 +50,8 @@ class MarchMadnessModel_v3(nn.Module):
         self.hist_fc    = nn.Linear(hist_hidden_dim, hist_out_dim)
         self.hist_fc_bn = nn.BatchNorm1d(hist_out_dim)
 
-        # Final fusion MLP
-        fusion_dim = (team_embed_dim * 2) + (hist_out_dim * 2) + team_embed_dim + hist_out_dim
+        # Final fusion MLP (+3 for Team A Elo, Team B Elo, and Elo Diff)
+        fusion_dim = (team_embed_dim * 2) + (hist_out_dim * 2) + team_embed_dim + hist_out_dim + 3
 
         self.linear_1 = nn.Linear(fusion_dim, 256)
         self.bn_1     = nn.BatchNorm1d(256)
@@ -128,12 +128,21 @@ class MarchMadnessModel_v3(nn.Module):
     # Forward pass 
     # ================================================================================
     def forward(self, batch):
+        # Get the team IDs
         teamA_id = batch["teamA_id"]
         teamB_id = batch["teamB_id"]
 
+        # 1) Get and normalize Elo ratings
+        # Normalizing to keep values roughly between -2.0 and 2.0
+        teamA_elo = (batch["teamA_elo"].unsqueeze(-1) - 1500.0) / 400.0  # (B, 1)
+        teamB_elo = (batch["teamB_elo"].unsqueeze(-1) - 1500.0) / 400.0  # (B, 1)
+        elo_diff  = teamA_elo - teamB_elo
+
+        # 2) Get current team embeddings
         teamA_emb = self.team_embedding(teamA_id)
         teamB_emb = self.team_embedding(teamB_id)
 
+        # 3) Process histories
         teamA_hist = self.encode_history(
             batch["teamA_hist_numeric"],
             batch["teamA_hist_opp_ids"],
@@ -146,32 +155,37 @@ class MarchMadnessModel_v3(nn.Module):
             batch["teamB_hist_mask"],
         )
 
+        # 4) Calculate differences
         current_diff = teamA_emb  - teamB_emb
         hist_diff    = teamA_hist - teamB_hist
 
-        # Fuse everything
-        x = torch.cat([teamA_emb, teamB_emb, teamA_hist, teamB_hist, current_diff, hist_diff], dim=-1)
+        # 5) Fuse everything together
+        x = torch.cat([
+            teamA_emb,  teamB_emb, 
+            teamA_hist, teamB_hist, current_diff, hist_diff, 
+            teamA_elo,  teamB_elo,  elo_diff,
+        ], dim=-1)
 
         # --------------------------------------------------------------------------------
         # MLP with Residual
         # --------------------------------------------------------------------------------
         # Block 1
         x = self.linear_1(x)
-        x = self.bn_1(x)
-        x = F.relu(x)
-        x = F.dropout(x, self.dropout, training=self.training)
+        x = self.bn_1    (x)
+        x = F.relu       (x)
+        x = F.dropout    (x, self.dropout, training=self.training)
 
         # Block 2 (Residual)
         res = x
         x = self.linear_res(x)
-        x = self.bn_res(x)
-        x = F.relu(x + res)                            # Skip connection addition
+        x = self.bn_res    (x)
+        x = F.relu         (x + res)  # Skip connection residual
         x = F.dropout(x, self.dropout, training=self.training)
 
         # Block 3
         x = self.linear_2(x)
-        x = self.bn_2(x)
-        x = F.relu(x)
+        x = self.bn_2    (x)
+        x = F.relu       (x)
 
         # Prediction Heads
         box_score_pred = self.box_score_out(x)

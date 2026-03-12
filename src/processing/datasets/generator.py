@@ -16,9 +16,10 @@ from tqdm.auto   import tqdm
 from typing      import Any
 
 # From this project
-from ...config  import W_TEAM_STAT_COLS, L_TEAM_STAT_COLS, BOX_SCORE_COLS
-from ...config  import DEFAULT_HISTORY_LEN
-from   .history import make_team_history_entry, history_to_arrays
+from ...config              import W_TEAM_STAT_COLS, L_TEAM_STAT_COLS, BOX_SCORE_COLS
+from ...config              import DEFAULT_HISTORY_LEN
+from  ..features.elo_rating import get_new_elos
+from   .history             import make_team_history_entry, history_to_arrays
 
 
 # --------------------------------------------------------------------------------
@@ -54,10 +55,11 @@ def build_examples(
         history_len : int = DEFAULT_HISTORY_LEN,             # How many games to keep in the history
         *,
         team_histories    : dict[str, deque] | None = None,  # Can pass the end of regular season history to tournaments
+        team_elos         : dict[int, float] | None = None,  # Elo tracker
         update_history    : bool = True,                     # Whether or not to update the team histories
         has_full_boxscore : bool = True,                     # Secondary tournament games have no box score data
 
-) -> tuple[list[dict[str, Any]], dict[str, deque]]:
+) -> tuple[list[dict[str, Any]], dict[str, deque], dict[int, float]]:
     """
     Reads history first, then updates history with the current game. Each game is 
     stored once in the canonical orientation (winning team first).
@@ -68,15 +70,23 @@ def build_examples(
     # Sort again just in case
     df = df.sort_values(["Season", "DayNum"]).reset_index(drop=True)
 
+    # --------------------------------------------------------------------------------
+    # Initialize Histories (histories from the end of the regular season will be provided for tournament games)
+    # --------------------------------------------------------------------------------
     # If not provided with starting historical data, create a fresh dictionary
-    # (histories from the end of the regular season will be provided for tournament games)
     if team_histories is None: team_histories = defaultdict(lambda: deque(maxlen=history_len))
     else:                      team_histories = deepcopy(team_histories)
+
+    # Initialize Elos (Standard starting Elo is 1500)
+    if team_elos is None: team_elos = defaultdict(lambda: 1500.0)
+    else:                 team_elos = deepcopy(team_elos)
 
     # Storage for the final output examples
     examples = []
 
+    # --------------------------------------------------------------------------------
     # Loop through each game in chronological order
+    # --------------------------------------------------------------------------------
     pbar = tqdm(df.iterrows(), desc="Building team histories & training examples", total=len(df), leave=True)
     for row_idx, row in pbar:
         # IDs for the two teams 
@@ -88,6 +98,10 @@ def build_examples(
         # --------------------------------------------------------------------------------
         teamA_id = W_team
         teamB_id = L_team
+
+        # Get current Elos
+        teamA_elo = team_elos[teamA_id]
+        teamB_elo = team_elos[teamB_id]
 
         # Individual team historic data
         teamA_hist_numeric, teamA_hist_opp_ids, teamA_hist_mask = history_to_arrays(team_histories[teamA_id], history_len=history_len)
@@ -113,6 +127,10 @@ def build_examples(
             "teamA_id" : int(teamA_id),
             "teamB_id" : int(teamB_id),
 
+            # Team Elo ratings
+            "teamA_elo": float(teamA_elo),
+            "teamB_elo": float(teamB_elo),
+
             # Team A historic stats
             "teamA_hist_numeric" : teamA_hist_numeric,
             "teamA_hist_opp_ids" : teamA_hist_opp_ids,
@@ -130,17 +148,21 @@ def build_examples(
         })
 
         # --------------------------------------------------------------------------------
-        # Update team histories
+        # Update team histories & Elo ratings
         # --------------------------------------------------------------------------------
         # We don't always update the history (secondary tournament games have no box scores)
-        if update_history:
-            if not has_full_boxscore: raise ValueError("Cannot update history when has_full_boxscore=False")
-
+        if has_full_boxscore:
+   
             # Generate a history entry for this game and save it
             W_entry = make_team_history_entry(row, team_id=W_team, opp_id=L_team, is_winner=True )
             L_entry = make_team_history_entry(row, team_id=L_team, opp_id=W_team, is_winner=False)
             team_histories[W_team].append(W_entry)
             team_histories[L_team].append(L_entry)
+
+        # Update Elos post-game 
+        new_A_elo, new_B_elo = get_new_elos(teamA_elo, teamB_elo, k=20.0)
+        team_elos[teamA_id] = new_A_elo
+        team_elos[teamB_id] = new_B_elo
 
     return examples, team_histories
 
