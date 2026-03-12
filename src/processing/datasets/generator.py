@@ -30,8 +30,8 @@ def make_current_game_targets(row: pd.Series, teamA_ID, teamB_ID) -> tuple[np.nd
     Returns the two box scores separately so we can still flip them if needed.
     """
     # To match the two teams with the winner and loser
-    W_team = row["WTeamID"]
-    L_team = row["LTeamID"]
+    W_team = row["W_year_ID"]
+    L_team = row["L_year_ID"]
 
     # Get the stats (different order for which team won)
     if (teamA_ID == W_team) and (teamB_ID == L_team):
@@ -89,9 +89,13 @@ def build_examples(
     # --------------------------------------------------------------------------------
     pbar = tqdm(df.iterrows(), desc="Building team histories & training examples", total=len(df), leave=True)
     for row_idx, row in pbar:
-        # IDs for the two teams 
-        W_team = row["WTeamID"]
-        L_team = row["LTeamID"]
+        # School IDs for the two teams 
+        W_team_school = row["WTeamID"]
+        L_team_school = row["LTeamID"]
+
+        # Year IDs
+        W_team = row["W_year_ID"]
+        L_team = row["L_year_ID"]
 
         # --------------------------------------------------------------------------------
         # Winning team first (winner, loser)
@@ -100,8 +104,8 @@ def build_examples(
         teamB_id = L_team
 
         # Get current Elos
-        teamA_elo = team_elos[teamA_id]
-        teamB_elo = team_elos[teamB_id]
+        teamA_elo = team_elos[W_team_school]
+        teamB_elo = team_elos[L_team_school]
 
         # Individual team historic data
         teamA_hist_numeric, teamA_hist_opp_ids, teamA_hist_mask = history_to_arrays(team_histories[teamA_id], history_len=history_len)
@@ -151,18 +155,18 @@ def build_examples(
         # Update team histories & Elo ratings
         # --------------------------------------------------------------------------------
         # We don't always update the history (secondary tournament games have no box scores)
-        if has_full_boxscore:
-   
-            # Generate a history entry for this game and save it
-            W_entry = make_team_history_entry(row, team_id=W_team, opp_id=L_team, is_winner=True )
-            L_entry = make_team_history_entry(row, team_id=L_team, opp_id=W_team, is_winner=False)
-            team_histories[W_team].append(W_entry)
-            team_histories[L_team].append(L_entry)
+        if update_history:
+            if has_full_boxscore:
+                # Generate a history entry for this game and save it
+                W_entry = make_team_history_entry(row, team_id=W_team, opp_id=L_team, is_winner=True )
+                L_entry = make_team_history_entry(row, team_id=L_team, opp_id=W_team, is_winner=False)
+                team_histories[W_team].append(W_entry)
+                team_histories[L_team].append(L_entry)
 
-        # Update Elos post-game 
-        new_A_elo, new_B_elo = get_new_elos(teamA_elo, teamB_elo, k=20.0)
-        team_elos[teamA_id] = new_A_elo
-        team_elos[teamB_id] = new_B_elo
+            # Update Elos post-game 
+            new_A_elo, new_B_elo = get_new_elos(teamA_elo, teamB_elo, k=20.0)
+            team_elos[W_team_school] = new_A_elo
+            team_elos[L_team_school] = new_B_elo
 
     return examples, team_histories
 
