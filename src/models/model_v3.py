@@ -24,8 +24,9 @@ class MarchMadnessModel_v3(nn.Module):
         *,
         hist_numeric_dim = HIST_NUMERIC_DIM,
         history_len      = DEFAULT_HISTORY_LEN,
-        hist_hidden_dim  = 64,
-        hist_out_dim     = 64,
+        hist_hidden_dim  =  64,
+        hist_out_dim     =  64,
+        middle_dim       = 128, # was 256
         dropout          = 0.3,
         box_score_dim    = BOX_SCORE_DIM,
     ):
@@ -53,14 +54,14 @@ class MarchMadnessModel_v3(nn.Module):
         # Final fusion MLP (+3 for Team A Elo, Team B Elo, and Elo Diff)
         fusion_dim = (team_embed_dim * 2) + (hist_out_dim * 2) + team_embed_dim + hist_out_dim + 3
 
-        self.linear_1 = nn.Linear(fusion_dim, 256)
-        self.bn_1     = nn.BatchNorm1d(256)
+        self.linear_1 = nn.Linear(fusion_dim, middle_dim)
+        self.bn_1     = nn.BatchNorm1d(middle_dim)
         
         # New Residual Block in MLP
-        self.linear_res = nn.Linear(256, 256)
-        self.bn_res     = nn.BatchNorm1d(256)
+        self.linear_res = nn.Linear(middle_dim, middle_dim)
+        self.bn_res     = nn.BatchNorm1d(middle_dim)
 
-        self.linear_2 = nn.Linear(256, 64)
+        self.linear_2 = nn.Linear(middle_dim, 64)
         self.bn_2     = nn.BatchNorm1d(64)
 
         # Heads

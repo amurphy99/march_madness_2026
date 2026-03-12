@@ -31,6 +31,7 @@ class MarchMadnessModel_v2(nn.Module):
         history_len      = DEFAULT_HISTORY_LEN,
         hist_hidden_dim  = 64,
         hist_out_dim     = 64,
+        middle_dim       = 128, # was 256
         dropout          = 0.2,
         box_score_dim    = BOX_SCORE_DIM,
     ):
@@ -58,10 +59,10 @@ class MarchMadnessModel_v2(nn.Module):
         # Final fusion MLP (current A, current B, hist A, hist B, current diff, hist diff)
         fusion_dim = (team_embed_dim * 2) + (hist_out_dim * 2) + team_embed_dim + hist_out_dim
 
-        self.linear_1 = nn.Linear(fusion_dim, 256)
-        self.bn_1     = nn.BatchNorm1d(256)
+        self.linear_1 = nn.Linear(fusion_dim, middle_dim)
+        self.bn_1     = nn.BatchNorm1d(middle_dim)
 
-        self.linear_2 = nn.Linear(256, 64)
+        self.linear_2 = nn.Linear(middle_dim, 64)
         self.bn_2     = nn.BatchNorm1d(64)
 
         # Heads
@@ -92,7 +93,7 @@ class MarchMadnessModel_v2(nn.Module):
 
         # Project each timestep
         x = self.hist_input_proj(x)                  # (B, T, H)
-        x = F.relu(x)
+        x = F.silu(x)
         x = F.dropout(x, self.dropout, training=self.training)
 
         # --------------------------------------------------------------------------------
@@ -101,16 +102,17 @@ class MarchMadnessModel_v2(nn.Module):
         # Conv1d expects (B, C, T)
         x = x.transpose(1, 2)                          # (B, H, T)
 
-        # Conv #1
+        # Conv #1 (with residual)
         x = self.hist_conv_1(x)
         x = self.hist_bn_1  (x)
-        x = F.relu          (x)
+        x = F.silu          (x)
         x = F.dropout       (x, self.dropout, training=self.training)
 
-        # Conv #2
+        # Conv #2 (with residual)
+        residual = x
         x = self.hist_conv_2(x)
         x = self.hist_bn_2  (x)
-        x = F.relu          (x)
+        x = F.silu          (x + residual)
         x = F.dropout       (x, self.dropout, training=self.training)
 
         # --------------------------------------------------------------------------------
@@ -122,7 +124,7 @@ class MarchMadnessModel_v2(nn.Module):
         # Final projection
         x = self.hist_fc   (x)
         x = self.hist_fc_bn(x)
-        x = F.relu         (x)
+        x = F.silu         (x)
 
         return x
 
@@ -163,12 +165,12 @@ class MarchMadnessModel_v2(nn.Module):
         # --------------------------------------------------------------------------------
         x = self.linear_1(x)
         x = self.bn_1    (x)
-        x = F.relu       (x)
+        x = F.silu       (x)
         x = F.dropout    (x, self.dropout, training=self.training)
 
         x = self.linear_2(x)
         x = self.bn_2    (x)
-        x = F.relu       (x)
+        x = F.silu       (x)
 
         # Prediction Heads
         box_score_pred = self.box_score_out(x)
