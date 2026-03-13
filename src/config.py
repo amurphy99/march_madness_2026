@@ -8,7 +8,7 @@ Configuration parameters / constants for the project.
 # --------------------------------------------------------------------------------
 # Data Columns
 # --------------------------------------------------------------------------------
-TEAM_BOX_SCORE_COLUMNS = ["Score","2FGM", "2FGA", "3FGM", "3FGA", "FTM", "FTA", "OR", "DR", "Ast", "TO", "Stl", "Blk", "PF"]
+TEAM_BOX_SCORE_COLUMNS = ["Score", "2FGM", "2FGA", "3FGM", "3FGA", "FTM", "FTA", "OR", "DR", "Ast", "TO", "Stl", "Blk", "PF"]
 
 W_TEAM_STAT_COLS = [f"W{stat}" for stat in TEAM_BOX_SCORE_COLUMNS]
 L_TEAM_STAT_COLS = [f"W{stat}" for stat in TEAM_BOX_SCORE_COLUMNS]

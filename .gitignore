@@ -16,3 +16,7 @@ notebooks/*
 # Code
 *.ipynb_checkpoints
 *.pyc
+
+# Saved objects
+*.pkl
+

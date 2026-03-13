@@ -14,6 +14,9 @@ TODO: Is there a value in counting total attemps vs. misses?
 import numpy  as np
 import pandas as pd
 
+# From this project
+from ..scaling.scaling import scale_box_scores
+
 
 # --------------------------------------------------------------------------------
 # Add the year-team ID to a DataFrame
@@ -69,14 +72,17 @@ def convert_teamIDs_to_int(df: pd.DataFrame, team_ID_to_int: dict[str, int]) -> 
     return df
 
 
-
-
-
-
 # ================================================================================
 # Apply all preprocessing methods
 # ================================================================================
-def apply_box_score_preprocessing(df: pd.DataFrame, do_box=True) -> pd.DataFrame:
+def apply_box_score_preprocessing(
+        df     : pd.DataFrame, 
+        do_box : bool = True,
+        *,
+        scale_data : bool = True,  # Whether to apply a StandardScaler to the data
+        tourney    : str  = "M",   # Select the scaler for the correct tournament
+        years      : int  = 7,     # Select the scaler trained on the correct years
+) -> pd.DataFrame:
     df = df.copy()
 
     # 1) Set the Year-Team IDs
@@ -85,7 +91,10 @@ def apply_box_score_preprocessing(df: pd.DataFrame, do_box=True) -> pd.DataFrame
     # 2) Separate 2s and 3s (secondary tournament results have no box score)
     if do_box: df = _handle_field_goals(df)
 
-    # 3) Sort by "Season" and "DayNum" (oldest games are first)
+    # 3) Scale the box score data
+    if scale_data: df = scale_box_scores(df, tourney, years)
+
+    # 4) Sort by "Season" and "DayNum" (oldest games are first)
     df = df.sort_values(by=["Season", "DayNum"], ascending=True)
 
     # Return with changes

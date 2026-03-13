@@ -24,8 +24,9 @@ def load_data(
         TOURNEY  : str, 
         *, 
         num_past_years      : int  = DEFAULT_PAST_YEARS, 
-        verbose             : int  = 1,
+        scale_data          : bool = True, # If we should apply a pre-trained StandardScaler to the box scores
         convert_IDs_to_ints : bool = True, # If we should already convert the IDs
+        verbose             : int  = 1,
 ):
     # --------------------------------------------------------------------------------
     # 1) Load the raw Kaggle data
@@ -50,10 +51,14 @@ def load_data(
     st_df = st_df[st_df["Season"].astype(int).isin(last_five_seasons)]
     tr_df = tr_df[tr_df["Season"].astype(int).isin(last_five_seasons)]
 
+    # Scaling args
+    scale_args = dict(scale_data=scale_data, tourney=TOURNEY, years=num_past_years)
+
     # Year-Team IDs + other preprocessing for the box score data
-    rs_df = apply_box_score_preprocessing(rs_df)
-    st_df = apply_box_score_preprocessing(st_df, do_box=False)
-    tr_df = apply_box_score_preprocessing(tr_df)
+    rs_df = apply_box_score_preprocessing(rs_df, **scale_args)
+    tr_df = apply_box_score_preprocessing(tr_df, **scale_args)
+    st_df = apply_box_score_preprocessing(st_df, do_box=False, scale_data=False)
+    
     seeds = apply_year_team_IDs(seeds)
 
     # Print some info about the data
