@@ -12,7 +12,7 @@ from tqdm.auto import tqdm
 
 # From this project
 from .epoch   import run_epoch
-from .metrics import print_epoch_summary
+from .metrics import print_epoch_summary, print_best_epoch
 
 
 
@@ -200,6 +200,9 @@ def train_model_v2(
     # Training finished
     # --------------------------------------------------------------------------------
     progress_bar.close()
+
+    # Print metrics from the best epoch
+    if verbose: print_best_epoch(history, num_epochs=num_epochs+1)
 
     if save_best and (val_loader is not None):
         print(f"Best model saved to: {best_model_path}")

@@ -4,7 +4,7 @@ Log metric progress during the training loop
 `src.training.v2026.metrics`
 
 """
-from ...utils.logging import RESET, BRIGHT_GREY
+from ...utils.logging import RESET, BOLD, UNBOLD, BRIGHT_GREY, HLINE
 
 # --------------------------------------------------------------------------------
 # Config
@@ -25,9 +25,9 @@ ORDERED_KEYS   = ["epoch_loss", "box_loss", "win_loss", "win_acc", "win_mse"]
 ORDERED_RENAME = {"epoch_loss": "loss"}
 
 
-# ================================================================================
+# --------------------------------------------------------------------------------
 # Simple metric printing
-# ================================================================================
+# --------------------------------------------------------------------------------
 def _format_metrics(metrics: dict, m_type: str = "") -> str:
     if not metrics: return "None"
 
@@ -75,3 +75,23 @@ def print_epoch_summary(
         print(f"{BRIGHT_GREY}  Secondary : {_format_metrics(secondary_metrics)}{RESET}")
 
 
+# --------------------------------------------------------------------------------
+# Get metrics for the best performing epoch
+# --------------------------------------------------------------------------------
+# Finds the dictionary in the list where history["val"]["win_mse"] is lowest
+def _get_best_epoch(history):
+    best_entry = min(history, key=lambda x: x["val"]["win_mse"])
+    return best_entry
+
+def print_best_epoch(history, num_epochs: int = 0):
+    best_entry = _get_best_epoch(history)
+    
+    print(f"\n{HLINE}\n{BOLD}Best Epoch:{UNBOLD}\n{HLINE}")
+
+    print_epoch_summary(
+        epoch             = best_entry["epoch"],
+        num_epochs        = num_epochs,
+        train_metrics     = best_entry["train"    ],
+        secondary_metrics = best_entry["secondary"],
+        val_metrics       = best_entry["val"      ],
+    )
