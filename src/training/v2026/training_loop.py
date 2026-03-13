@@ -41,6 +41,9 @@ def train_model_v2(
         win_loss_weight           : float = 1.0,
         secondary_win_loss_weight : float = 5.0,     # Secondary tournament data
 
+        # Extra loss config (for alternate models)
+        use_mean_var_loss: bool = False,
+
         # Optimizer / scheduler
         optimizer = None,
         scheduler = None,
@@ -102,11 +105,12 @@ def train_model_v2(
     # Define some shared epoch parameters
     # --------------------------------------------------------------------------------
     shared = dict(
-        device         = device,
-        progress_bar   = progress_bar,
-        box_loss_fn    = box_loss_fn,
-        win_loss_fn    = win_loss_fn,
-        grad_clip_norm = grad_clip_norm,
+        device            = device,
+        progress_bar      = progress_bar,
+        box_loss_fn       = box_loss_fn,
+        win_loss_fn       = win_loss_fn,
+        grad_clip_norm    = grad_clip_norm,
+        use_mean_var_loss = use_mean_var_loss,
     )
 
     # Regular season and NCAA tournament shared

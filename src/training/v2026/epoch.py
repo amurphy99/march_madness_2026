@@ -10,6 +10,9 @@ import torch.nn.functional as F
 
 from tqdm.auto import tqdm
 
+# From this project
+from ..utils.losses import gaussian_nll_loss
+
 
 # --------------------------------------------------------------------------------
 # Utilities
@@ -40,8 +43,9 @@ def run_epoch(
         box_loss_weight: float    = 1.0,
         win_loss_weight: float    = 1.0,
 
-        # If False, skip the box-score loss entirely
-        use_box_loss: bool        = True,
+        # If False, skip the loss entirely
+        use_box_loss      : bool = True,
+        use_mean_var_loss : bool = False,
 
         # Optional gradient clipping
         grad_clip_norm: float | None = None,
@@ -85,11 +89,18 @@ def run_epoch(
         # 2) Forward pass
         # --------------------------------------------------------------------------------
         with torch.set_grad_enabled(is_training):
-            box_score_pred, win_logit = model(batch)
+            
+            # Unpack differently depending on the model architecture
+            if use_mean_var_loss: (box_mu, box_log_var), win_logit = model(batch)
+            else:                 box_score_pred,        win_logit = model(batch)
 
             # Box-score loss
-            if use_box_loss: loss_box = box_loss_fn(box_score_pred, target_box_score)
-            else:            loss_box = torch.zeros((), device=device)
+            if use_box_loss: 
+                # Gaussian NLL Loss vs. Standard L1/Huber Loss for older models
+                if use_mean_var_loss: loss_box = gaussian_nll_loss(box_mu, target_box_score, box_log_var)
+                else:                 loss_box = box_loss_fn(box_score_pred, target_box_score)
+            else:            
+                loss_box = torch.zeros((), device=device)
 
             # Win prediction loss
             loss_win = win_loss_fn(win_logit, target_win)
