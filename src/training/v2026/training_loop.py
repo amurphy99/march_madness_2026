@@ -1,5 +1,5 @@
 """
-Training loop function.
+Training loop function
 --------------------------------------------------------------------------------
 `src.training.v2026.training_loop`
 
@@ -11,38 +11,9 @@ from torch.nn  import Module
 from tqdm.auto import tqdm
 
 # From this project
-from .epoch import run_epoch
+from .epoch   import run_epoch
+from .metrics import print_epoch_summary
 
-# --------------------------------------------------------------------------------
-# Simple metric printing
-# --------------------------------------------------------------------------------
-def _format_metrics(metrics: dict) -> str:
-    if not metrics: return "None"
-
-    ordered_keys = ["epoch_loss", "box_loss", "win_loss", "win_acc", "win_mse"]
-    parts        = []
-
-    for key in ordered_keys:
-        if key in metrics: parts.append(f"{key}={metrics[key]:7.4f}")
-
-    # Include any extra keys too
-    for key, value in metrics.items():
-        if key not in ordered_keys:
-            if isinstance(value, (int, float)): parts.append(f"{key}={value:7.4f}")
-            else:                               parts.append(f"{key}={value    }")
-
-    return " | ".join(parts)
-
-
-def _print_epoch_summary(epoch: int, num_epochs: int, train_metrics: dict, secondary_metrics: dict | None = None, val_metrics: dict | None = None) -> None:
-    print(f"\nEpoch {epoch}/{num_epochs - 1}")
-    print(f"  Train     : {_format_metrics(train_metrics)}")
-
-    if (secondary_metrics is not None) and (len(secondary_metrics) > 0):
-        print(f"  Secondary : {_format_metrics(secondary_metrics)}")
-
-    if (val_metrics is not None) and (len(val_metrics) > 0):
-        print(f"  Val       : {_format_metrics(val_metrics)}")
 
 
 # ================================================================================
@@ -89,9 +60,9 @@ def train_model_v2(
     Trains the model using pre-built DataLoaders.
 
     Notes:
-    - `train_loader`     => should usually use your training dataset with flipping enabled.
-    - `val_loader`       => should use flipping disabled.
-    - `secondary_loader` => is intended for classification-only data with no box-score loss.
+    - `train_loader`     => Training (regular season) dataset with 50% chance to flipping team order.
+    - `val_loader`       => NCAA tournament games; all games included twice, once with teams in each order.
+    - `secondary_loader` => Secondary tournament games; no box score data available
     """
     if history is None: history = []
 
@@ -169,8 +140,7 @@ def train_model_v2(
         if val_loader is not None: val_metrics = run_epoch(model, val_loader, **rs_tr_args)
         else:                      val_metrics = {}
 
-        if verbose:
-            _print_epoch_summary(0, num_epochs+1, train_metrics, secondary_metrics, val_metrics)
+        if verbose: print_epoch_summary(0, num_epochs+1, train_metrics, secondary_metrics, val_metrics)
 
         # Update history
         history.append({
@@ -200,8 +170,7 @@ def train_model_v2(
         if scheduler is not None: scheduler.step()
 
         # Print summary
-        if verbose:
-            _print_epoch_summary(epoch, num_epochs+1, train_metrics, secondary_metrics, val_metrics)
+        if verbose: print_epoch_summary(epoch, num_epochs+1, train_metrics, secondary_metrics, val_metrics)
 
         # Save best model
         if save_best and val_loader is not None:
