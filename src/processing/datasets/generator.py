@@ -104,8 +104,8 @@ def build_examples(
         teamB_id = L_team
 
         # Get current Elos
-        teamA_elo = team_elos[W_team_school]
-        teamB_elo = team_elos[L_team_school]
+        teamA_elo = team_elos[W_team]
+        teamB_elo = team_elos[L_team]
 
         # Individual team historic data
         teamA_hist_numeric, teamA_hist_opp_ids, teamA_hist_mask = history_to_arrays(team_histories[teamA_id], history_len=history_len)
@@ -165,8 +165,8 @@ def build_examples(
 
             # Update Elos post-game 
             new_A_elo, new_B_elo = get_new_elos(teamA_elo, teamB_elo, k=20.0)
-            team_elos[W_team_school] = new_A_elo
-            team_elos[L_team_school] = new_B_elo
+            team_elos[W_team] = new_A_elo
+            team_elos[L_team] = new_B_elo
 
     return examples, team_histories
 

@@ -24,7 +24,7 @@ HIST_NUMERIC_DIM = len(BOX_SCORE_COLS) + 3
 # Default Config
 # --------------------------------------------------------------------------------
 # Number of past tournament years to evaluate with (still uses all regular season data)
-DEFAULT_PAST_YEARS = 7
+DEFAULT_PAST_YEARS = 10
 
 # Number of previous games to store in each team's history
 DEFAULT_HISTORY_LEN = 10
@@ -33,4 +33,4 @@ DEFAULT_HISTORY_LEN = 10
 # Default Config
 # --------------------------------------------------------------------------------
 # Maximum possible Elo change from a single game
-ELO_K = 100.0
+ELO_K = 50.0
