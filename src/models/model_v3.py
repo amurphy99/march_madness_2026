@@ -192,5 +192,7 @@ class MarchMadnessModel_v3(nn.Module):
         # Prediction Heads
         box_score_pred = self.box_score_out(x)
         win_logit      = self.win_out      (x).squeeze(-1)
+        #win_prob       = torch.sigmoid(win_logit)
 
-        return box_score_pred, win_logit
+        return box_score_pred, win_logit # win_logit | win_prob
+    
