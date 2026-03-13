@@ -8,8 +8,6 @@ themselves, but also when somebody who they played against recently plays a new
 game. So if TeamA beats TeamB, and TeamC beats TeamA next, we might learn some 
 info about how TeamC compares to TeamB through the game history.
 
-TODO: Maybe try with residuals?
-
 """
 import torch
 import torch.nn            as nn
@@ -32,7 +30,7 @@ class MarchMadnessModel_v2(nn.Module):
         hist_hidden_dim  = 64,
         hist_out_dim     = 64,
         middle_dim       = 128, # was 256
-        dropout          = 0.2,
+        dropout          = 0.3,
         box_score_dim    = BOX_SCORE_DIM,
     ):
         super().__init__()
@@ -56,8 +54,10 @@ class MarchMadnessModel_v2(nn.Module):
         self.hist_fc    = nn.Linear(hist_hidden_dim * history_len, hist_out_dim)
         self.hist_fc_bn = nn.BatchNorm1d(hist_out_dim)
 
-        # Final fusion MLP (current A, current B, hist A, hist B, current diff, hist diff)
-        fusion_dim = (team_embed_dim * 2) + (hist_out_dim * 2) + team_embed_dim + hist_out_dim
+        # Final fusion MLP 
+        # (current A, current B, hist A, hist B, current diff, hist diff)
+        # (+3 for Team A Elo, Team B Elo, and Elo Diff)
+        fusion_dim = (team_embed_dim * 2) + (hist_out_dim * 2) + 3 #+ team_embed_dim + hist_out_dim
 
         self.linear_1 = nn.Linear(fusion_dim, middle_dim)
         self.bn_1     = nn.BatchNorm1d(middle_dim)
@@ -103,9 +103,10 @@ class MarchMadnessModel_v2(nn.Module):
         x = x.transpose(1, 2)                          # (B, H, T)
 
         # Conv #1 (with residual)
+        residual = x
         x = self.hist_conv_1(x)
         x = self.hist_bn_1  (x)
-        x = F.silu          (x)
+        x = F.silu          (x + residual)
         x = F.dropout       (x, self.dropout, training=self.training)
 
         # Conv #2 (with residual)
@@ -136,11 +137,17 @@ class MarchMadnessModel_v2(nn.Module):
         teamA_id = batch["teamA_id"]
         teamB_id = batch["teamB_id"]
 
-        # Current team embeddings
+        # 1) Get and normalize Elo ratings
+        # Normalizing to keep values roughly between -2.0 and 2.0
+        teamA_elo = (batch["teamA_elo"].unsqueeze(-1) - 1500.0) / 400.0  # (B, 1)
+        teamB_elo = (batch["teamB_elo"].unsqueeze(-1) - 1500.0) / 400.0  # (B, 1)
+        elo_diff  = teamA_elo - teamB_elo
+
+        # 2) Get current team embeddings
         teamA_emb = self.team_embedding(teamA_id)       # (B, E)
         teamB_emb = self.team_embedding(teamB_id)       # (B, E)
 
-        # Historical branches
+        # 3) Process histories
         teamA_hist = self.encode_history(
             batch["teamA_hist_numeric"],
             batch["teamA_hist_opp_ids"],
@@ -153,12 +160,17 @@ class MarchMadnessModel_v2(nn.Module):
             batch["teamB_hist_mask"   ],
         )
 
-        # Difference features often help matchup models
-        current_diff = teamA_emb  - teamB_emb
-        hist_diff    = teamA_hist - teamB_hist
+        # 4) Calculate differences
+        #current_diff = teamA_emb  - teamB_emb
+        #hist_diff    = teamA_hist - teamB_hist
 
         # Fuse everything
-        x = torch.cat([teamA_emb, teamB_emb, teamA_hist, teamB_hist, current_diff, hist_diff], dim=-1)
+        x = torch.cat([
+            teamA_emb, teamB_emb, 
+            teamA_hist, teamB_hist, 
+            #current_diff, hist_diff
+            teamA_elo,  teamB_elo,  elo_diff,
+        ], dim=-1)
 
         # --------------------------------------------------------------------------------
         # MLP

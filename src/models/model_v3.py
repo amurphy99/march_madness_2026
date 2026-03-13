@@ -52,7 +52,7 @@ class MarchMadnessModel_v3(nn.Module):
         self.hist_fc_bn = nn.BatchNorm1d(hist_out_dim)
 
         # Final fusion MLP (+3 for Team A Elo, Team B Elo, and Elo Diff)
-        fusion_dim = (team_embed_dim * 2) + (hist_out_dim * 2) + team_embed_dim + hist_out_dim + 3
+        fusion_dim = (team_embed_dim * 2) + (hist_out_dim * 2) + 3 # + team_embed_dim + hist_out_dim
 
         self.linear_1 = nn.Linear(fusion_dim, middle_dim)
         self.bn_1     = nn.BatchNorm1d(middle_dim)
@@ -157,13 +157,14 @@ class MarchMadnessModel_v3(nn.Module):
         )
 
         # 4) Calculate differences
-        current_diff = teamA_emb  - teamB_emb
-        hist_diff    = teamA_hist - teamB_hist
+        #current_diff = teamA_emb  - teamB_emb
+        #hist_diff    = teamA_hist - teamB_hist
 
         # 5) Fuse everything together
         x = torch.cat([
             teamA_emb,  teamB_emb, 
-            teamA_hist, teamB_hist, current_diff, hist_diff, 
+            teamA_hist, teamB_hist, 
+            #current_diff, hist_diff, 
             teamA_elo,  teamB_elo,  elo_diff,
         ], dim=-1)
 
