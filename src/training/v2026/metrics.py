@@ -6,7 +6,9 @@ Log metric progress during the training loop
 """
 from ...utils.logging import RESET, BRIGHT_GREY
 
-
+# --------------------------------------------------------------------------------
+# Config
+# --------------------------------------------------------------------------------
 # Highlight different metrics with different formatting
 HIGHLIGHTS_DICT = {
     # Game source-based highlighting
@@ -18,26 +20,30 @@ HIGHLIGHTS_DICT = {
     "win_mse": f"",
 }
 
-# --------------------------------------------------------------------------------
+# Metrics we expect
+ORDERED_KEYS   = ["epoch_loss", "box_loss", "win_loss", "win_acc", "win_mse"]
+ORDERED_RENAME = {"epoch_loss": "loss"}
+
+
+# ================================================================================
 # Simple metric printing
-# --------------------------------------------------------------------------------
+# ================================================================================
 def _format_metrics(metrics: dict, m_type: str = "") -> str:
     if not metrics: return "None"
 
     # Highlight based on the type of metrics we have
     highlight = HIGHLIGHTS_DICT.get(m_type, "")
 
-    # Metrics we expect
-    ordered_keys = ["epoch_loss", "box_loss", "win_loss", "win_acc", "win_mse"]
-    parts        = []
-
-    for key in ordered_keys:
+    # Get all metrics we expect to have
+    parts = []
+    for key in ORDERED_KEYS:
         if key in metrics: 
-            parts.append(f"{key}={metrics[key]:7.4f}")
+            key_str = ORDERED_RENAME.get(key, key)
+            parts.append(f"{key_str}={metrics[key]:7.4f}")
 
     # Include any extra keys too
     for key, value in metrics.items():
-        if key not in ordered_keys:
+        if key not in ORDERED_KEYS:
             if isinstance(value, (int, float)): parts.append(f"{key}={value:7.4f}")
             else:                               parts.append(f"{key}={value    }")
 
@@ -45,7 +51,7 @@ def _format_metrics(metrics: dict, m_type: str = "") -> str:
 
 
 # ================================================================================
-# Model Definition
+# Print a summary of the metrics after a single epoch of training
 # ================================================================================
 def print_epoch_summary(
         epoch             : int,                 # Current epoch
