@@ -7,14 +7,15 @@ Training loop function
 import torch, os
 
 from pathlib   import Path
-from torch.nn  import Module
 from tqdm.auto import tqdm
+from torch.nn                 import Module
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 # From this project
 from .epoch   import run_epoch
 from .metrics import print_epoch_summary, print_best_epoch
 
-
+MIN_EPOCHS = 40
 
 # ================================================================================
 # Training loop
@@ -47,12 +48,13 @@ def train_model_v2(
         # Optimizer / scheduler
         optimizer = None,
         scheduler = None,
-        grad_clip_norm: float | None = None,
+        grad_clip_norm          : float | None = None,
+        early_stopping_patience : int   | None = None, # Early Stopping
 
         # Logging
         verbose: int = 1,
 
-        # Saving models
+        # Saving models & Monitoring
         save_best    : bool = False,
         save_dir     : str  = "saved_models",
         save_name    : str  = "model_v2_best",
@@ -78,16 +80,18 @@ def train_model_v2(
         optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
     # --------------------------------------------------------------------------------
-    # Track the best model
+    # Track the best metric for Early Stopping & Saving
     # --------------------------------------------------------------------------------
+    if   monitor_mode == "min": best_metric = float( "inf")
+    elif monitor_mode == "max": best_metric = float("-inf")
+    else:  raise ValueError("monitor_mode must be 'min' or 'max'")
+
+    epochs_no_improve = 0
+
     if save_best:
         save_path = Path(save_dir)
         save_path.mkdir(parents=True, exist_ok=True)
         best_model_path = save_path / f"{save_name}.pth"
-
-        if   monitor_mode == "min": best_metric = float( "inf")
-        elif monitor_mode == "max": best_metric = float("-inf")
-        else:  raise ValueError("monitor_mode must be 'min' or 'max'")
 
     # --------------------------------------------------------------------------------
     # Setup progress bar
@@ -170,26 +174,52 @@ def train_model_v2(
         if val_loader is not None: val_metrics = run_epoch(model, val_loader, **rs_tr_args)
         else:                      val_metrics = {}
 
-        # Scheduler step
-        if scheduler is not None: scheduler.step()
-
         # Print summary
         if verbose: print_epoch_summary(epoch, num_epochs+1, train_metrics, secondary_metrics, val_metrics)
 
-        # Save best model
-        if save_best and val_loader is not None:
+        # ================================================================================
+        # Validation Monitoring, Schedulers, & Early Stopping
+        # ================================================================================
+        if val_loader is not None:
             if save_monitor not in val_metrics: raise KeyError(f"save_monitor='{save_monitor}' not found in validation metrics")
-
             current_metric = val_metrics[save_monitor]
 
+            # Scheduler step (Handle Plateau vs Standard)
+            if (scheduler is not None) and (epoch > MIN_EPOCHS): 
+                if isinstance(scheduler, ReduceLROnPlateau): scheduler.step(current_metric)
+                else:                                        scheduler.step()
+
+            # Check for improvement
             improved = (
                 (monitor_mode == "min" and current_metric < best_metric) or
                 (monitor_mode == "max" and current_metric > best_metric)
             )
 
             if improved:
-                best_metric = current_metric
-                torch.save(model.state_dict(), best_model_path)
+                best_metric       = current_metric
+                epochs_no_improve = 0
+                if save_best: torch.save(model.state_dict(), best_model_path)
+            else:
+                epochs_no_improve += 1
+            
+            # Early Stopping Check
+            if (early_stopping_patience is not None) and (epochs_no_improve >= early_stopping_patience) and (epoch > MIN_EPOCHS):
+                if verbose: 
+                    print(f"\nEarly stopping triggered! No improvement in '{save_monitor}' for {early_stopping_patience} epochs.")
+                
+                # We need to append the final history before breaking so the charts match
+                history.append({
+                    "epoch"    : epoch,
+                    "train"    : train_metrics,
+                    "secondary": secondary_metrics,
+                    "val"      : val_metrics,
+                    "trained"  : True,
+                })
+                break
+        else:
+            # If no validation loader, just step standard schedulers
+            if (scheduler is not None) and not isinstance(scheduler, ReduceLROnPlateau): scheduler.step()
+
 
         # Update history
         history.append({
