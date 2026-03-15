@@ -45,7 +45,14 @@ def get_optimizer(
 # ================================================================================
 # Schedulers
 # ================================================================================
-def get_scheduler(scheduler_type: str, optimizer: Optimizer) -> LRScheduler | None:
+def get_scheduler(
+        scheduler_type: str, 
+        optimizer: Optimizer,
+        *,
+        eta_min : float = CF.ETA_MIN,  # Minimum learning rate to decay to
+        patience: int   = CF.PATIENCE, # Wait for X epochs of no improvement before dropping learning rate
+        t_max   : int   = CF.EPOCHS,
+) -> LRScheduler | None:
     scheduler_type = scheduler_type.lower()
 
     # --------------------------------------------------------------------------------
@@ -56,8 +63,8 @@ def get_scheduler(scheduler_type: str, optimizer: Optimizer) -> LRScheduler | No
             optimizer,
             mode     = "min",        # Depends on the metric we want to go down (usually `win_mse` here)
             factor   = 0.50,         # Cut learning rate in half when plateaued
-            patience = 5,            # Wait for 5 epochs of no improvement before dropping learning rate
-            min_lr   = CF.ETA_MIN,   # Minimum learning rate the scheduler will lower us to
+            patience = patience,     # Wait for X epochs of no improvement before dropping learning rate
+            min_lr   = eta_min,      # Minimum learning rate the scheduler will lower us to
         )
         
     # --------------------------------------------------------------------------------
@@ -66,8 +73,8 @@ def get_scheduler(scheduler_type: str, optimizer: Optimizer) -> LRScheduler | No
     elif scheduler_type == "cosine":
         return CosineAnnealingLR(
             optimizer,
-            T_max    = CF.EPOCHS,    # Should match num_epochs
-            eta_min  = CF.ETA_MIN,   # Minimum learning rate to decay to
+            T_max    = t_max,       # Should match num_epochs
+            eta_min  = eta_min,     # Minimum learning rate to decay to
         )
         
     return None

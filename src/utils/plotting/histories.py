@@ -61,7 +61,7 @@ def plot_model_histories(
             # --------------------------------------------------------------------------------
             ax.plot(epochs, train_vals, 
                 linestyle = "-", 
-                alpha     = 0.4, 
+                alpha     = 0.75, 
                 linewidth = 1, 
                 color     = color, 
                 label     = f"{model_name}"

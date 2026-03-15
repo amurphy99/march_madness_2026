@@ -4,7 +4,7 @@ Training loop function
 `src.training.v2026.training_loop`
 
 """
-import torch, os
+import torch, os, time
 
 from pathlib   import Path
 from tqdm.auto import tqdm
@@ -58,7 +58,8 @@ def train_model_v2(
         grad_clip_norm          : float       | None = None,
 
         # Logging
-        verbose: int = 1,
+        verbose    : int = 1,
+        min_epochs : int = MIN_EPOCHS,
 
         # Saving models & Monitoring
         save_best    : bool = False,
@@ -76,6 +77,7 @@ def train_model_v2(
     - `secondary_loader` => Secondary tournament games; no box score data available
     """
     if history is None: history = []
+    total_time = 0
 
     # --------------------------------------------------------------------------------
     # Prepare for training
@@ -169,6 +171,8 @@ def train_model_v2(
     # Training / validation loop
     # --------------------------------------------------------------------------------
     for epoch in range(1, num_epochs+1):
+        t0 = time.perf_counter()
+
         # 1) Train on regular season
         train_metrics = run_epoch(model, train_loader, optimizer=optimizer, **rs_tr_args)
 
@@ -191,7 +195,7 @@ def train_model_v2(
             current_metric = val_metrics[save_monitor]
 
             # Scheduler step (Handle Plateau vs Standard)
-            if (scheduler is not None) and (epoch > MIN_EPOCHS): 
+            if (scheduler is not None) and (epoch > min_epochs): 
                 if isinstance(scheduler, ReduceLROnPlateau): scheduler.step(current_metric)
                 else:                                        scheduler.step()
 
@@ -209,7 +213,7 @@ def train_model_v2(
                 epochs_no_improve += 1
             
             # Early Stopping Check
-            if (early_stopping_patience is not None) and (epochs_no_improve >= early_stopping_patience) and (epoch > MIN_EPOCHS):
+            if (early_stopping_patience is not None) and (epochs_no_improve >= early_stopping_patience) and (epoch > min_epochs):
                 if verbose: 
                     print(f"\nEarly stopping triggered! No improvement in '{save_monitor}' for {early_stopping_patience} epochs.")
                 
@@ -226,7 +230,9 @@ def train_model_v2(
             # If no validation loader, just step standard schedulers
             if (scheduler is not None) and not isinstance(scheduler, ReduceLROnPlateau): scheduler.step()
 
-
+        # --------------------------------------------------------------------------------
+        # Book-keeping
+        # --------------------------------------------------------------------------------
         # Update history
         history.append({
             "epoch"    : epoch,
@@ -235,6 +241,12 @@ def train_model_v2(
             "val"      : val_metrics,
             "trained"  : True,
         })
+
+        # Time check
+        t1 = time.perf_counter()
+        epoch_time = t1 - t0
+        total_time += epoch_time
+        progress_bar.set_postfix({"sec/epoch": f"{(total_time / epoch):.4}s"})
 
     # --------------------------------------------------------------------------------
     # Training finished

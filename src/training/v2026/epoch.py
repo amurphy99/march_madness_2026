@@ -111,8 +111,8 @@ def run_epoch(
             win_proba = torch.sigmoid(win_logit)
 
             # For MSELoss, use `win_proba` instead of the logit            
-            if win_loss_fn == nn.MSELoss: loss_win = win_loss_fn(win_proba, target_win)
-            else:                         loss_win = win_loss_fn(win_logit, target_win)
+            if isinstance(win_loss_fn, nn.MSELoss): loss_win = win_loss_fn(win_proba, target_win)
+            else:                                   loss_win = win_loss_fn(win_logit, target_win)
 
             # --------------------------------------------------------------------------------
             # Combined Loss

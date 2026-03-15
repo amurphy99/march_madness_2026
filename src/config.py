@@ -48,6 +48,7 @@ class DEFAULT_TRAINING_CONFIG:
     LEARNING_RATE = 1e-4  # Initial learning rate 
     ETA_MIN       = 1e-5  # For learning rate schedulers
     WEIGHT_DECAY  = 1e-6  # Regulization for some optimizers
+    PATIENCE      = 5     # Wait for X epochs of no improvement before dropping learning rate
 
     # Default Setup
     OPTIMIZER_TYPE = "adam"
