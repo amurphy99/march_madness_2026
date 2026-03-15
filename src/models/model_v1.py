@@ -8,7 +8,12 @@ import torch
 import torch.nn            as nn
 import torch.nn.functional as F
 
+# From this project
+from ..config import BOX_SCORE_DIM
 
+# ================================================================================
+# Model Definition
+# ================================================================================
 class MarchMadnessModel_v1(nn.Module):
 
     def __init__(self, num_teams, num_seeds, team_embed_dim, seed_embed_dim, dropout):
@@ -29,17 +34,28 @@ class MarchMadnessModel_v1(nn.Module):
         self.bn_2     = nn.BatchNorm1d(64)
 
         # Outputs
-        self.box_score_out = nn.Linear(64, 26)
-        self.win_proba_out = nn.Linear(64,  1)
+        self.box_score_out = nn.Linear(64, BOX_SCORE_DIM)
+        self.win_out       = nn.Linear(64,  1)
         
-    def forward(self, input_data):
+    # ================================================================================
+    # Forward pass 
+    # ================================================================================
+    def forward(self, batch):
+        # Get the team IDs
+        teamA_id = batch["teamA_id"]
+        teamB_id = batch["teamB_id"]
+    
+        # Get the seed IDs
+        teamA_seed = batch["teamA_seed"]
+        teamB_seed = batch["teamB_seed"]
+
         # 1) Embedding lookup for the teams
-        team_A_emb = self.team_embedding(input_data[:, 0])
-        team_B_emb = self.team_embedding(input_data[:, 2])
+        team_A_emb = self.team_embedding(teamA_id)
+        team_B_emb = self.team_embedding(teamB_id)
 
         # 2) Embedding lookup for the seeds
-        team_A_seed_emb = self.seed_embedding(input_data[:, 1])
-        team_B_seed_emb = self.seed_embedding(input_data[:, 3])
+        team_A_seed_emb = self.seed_embedding(teamA_seed)
+        team_B_seed_emb = self.seed_embedding(teamB_seed)
 
         # 3) Concatenate them together
         x = torch.cat([team_A_emb, team_A_seed_emb, team_B_emb, team_B_seed_emb], dim=-1)
@@ -55,8 +71,9 @@ class MarchMadnessModel_v1(nn.Module):
         x = F.relu       (x)
 
         # 5) Heads
-        box_score_pred =               self.box_score_out(x)   # Regression
-        win_proba_pred = torch.sigmoid(self.win_proba_out(x))  # Classification
+        box_score_pred = self.box_score_out(x) 
+        win_logit      = self.win_out      (x).squeeze(-1)
+        win_prob       = torch.sigmoid(win_logit)
 
-        return box_score_pred, win_proba_pred
+        return box_score_pred, win_prob # win_logit | win_prob
 

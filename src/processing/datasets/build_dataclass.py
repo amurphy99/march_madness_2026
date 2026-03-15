@@ -25,6 +25,10 @@ class MarchMadnessPackedData:
     teamA_id : np.ndarray
     teamB_id : np.ndarray
 
+    # Seed IDs
+    teamA_seed : np.ndarray
+    teamB_seed : np.ndarray
+
     # Team Elo ratings
     teamA_elo : np.ndarray
     teamB_elo : np.ndarray
@@ -71,6 +75,10 @@ def pack_examples(examples: list[dict]) -> MarchMadnessPackedData:
         # Team IDs
         teamA_id = np.asarray([ex["teamA_id"] for ex in examples], dtype=np.int64),
         teamB_id = np.asarray([ex["teamB_id"] for ex in examples], dtype=np.int64),
+
+        # Seed IDs
+        teamA_seed = np.asarray([ex["teamA_seed"] for ex in examples], dtype=np.int64),
+        teamB_seed = np.asarray([ex["teamB_seed"] for ex in examples], dtype=np.int64),
 
         # Team Elo ratings
         teamA_elo = np.asarray([ex["teamA_elo"] for ex in examples], dtype=np.int64),

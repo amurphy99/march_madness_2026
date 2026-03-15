@@ -78,9 +78,21 @@ def load_data(
         st_df = convert_teamIDs_to_int(st_df, team_ID_to_int)
         tr_df = convert_teamIDs_to_int(tr_df, team_ID_to_int)
 
+    # --------------------------------------------------------------------------------
+    # 4) Add a seed column to the game data using the seed data
+    # --------------------------------------------------------------------------------
+    # Seeds are already in int/ID format after this function (ready for embeddings)
+    seeds, unique_seeds, seed_for_team = prep_seeds_df(seeds)
+
+    # Use the year ID strings to map seeds to this dataframe
+    for df in [rs_df, st_df, tr_df]:
+        df["W_Seed"] = df["WYearTeamID"].map(lambda team_ID: seed_for_team.get(team_ID, 0))
+        df["L_Seed"] = df["LYearTeamID"].map(lambda team_ID: seed_for_team.get(team_ID, 0))
+
     # Return all data
     return (
-        rs_df, st_df, tr_df, seeds, team_ID_to_int
+        rs_df, st_df, tr_df, seeds, team_ID_to_int,
+        unique_seeds, seed_for_team,
     )
 
 

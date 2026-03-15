@@ -63,6 +63,10 @@ class MarchMadnessHistoryDataset(Dataset):
         teamA_id = self.data.teamA_id[idx]
         teamB_id = self.data.teamB_id[idx]
 
+        # Seed IDs
+        teamA_seed = self.data.teamA_seed[idx]
+        teamB_seed = self.data.teamB_seed[idx]
+
         # Team Elo ratings
         teamA_elo = self.data.teamA_elo[idx].copy()
         teamB_elo = self.data.teamB_elo[idx].copy()
@@ -89,8 +93,11 @@ class MarchMadnessHistoryDataset(Dataset):
         if do_flip:
             flipped = True
 
-            # Flip IDs
+            # Flip Team IDs
             teamA_id, teamB_id = teamB_id, teamA_id
+
+            # Flip Seed IDs
+            teamA_seed, teamB_seed = teamB_seed, teamA_seed
 
             # Flip Elo ratings
             teamA_elo, teamB_elo = teamB_elo, teamA_elo
@@ -113,14 +120,19 @@ class MarchMadnessHistoryDataset(Dataset):
             "daynum"  : torch.tensor(self.data.daynum [idx], dtype=torch.long),
             "row_idx" : torch.tensor(self.data.row_idx[idx], dtype=torch.long),
 
-            # Team Elo ratings
-            "teamA_elo" : torch.tensor(teamA_elo, dtype=torch.long),
-            "teamB_elo" : torch.tensor(teamB_elo, dtype=torch.long),
-
             # Team IDs
             "teamA_id" : torch.tensor(teamA_id, dtype=torch.long),
             "teamB_id" : torch.tensor(teamB_id, dtype=torch.long),
 
+            # Seed IDs
+            "teamA_seed" : torch.tensor(teamA_seed, dtype=torch.long),
+            "teamB_seed" : torch.tensor(teamB_seed, dtype=torch.long),
+
+            # Team Elo ratings
+            "teamA_elo" : torch.tensor(teamA_elo, dtype=torch.long),
+            "teamB_elo" : torch.tensor(teamB_elo, dtype=torch.long),
+            
+            # Team A historic stats
             "teamA_hist_numeric" : torch.tensor(teamA_hist_numeric, dtype=torch.float32),
             "teamA_hist_opp_ids" : torch.tensor(teamA_hist_opp_ids, dtype=torch.long   ),
             "teamA_hist_mask"    : torch.tensor(teamA_hist_mask,    dtype=torch.float32),

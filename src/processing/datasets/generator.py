@@ -131,6 +131,10 @@ def build_examples(
             "teamA_id" : int(teamA_id),
             "teamB_id" : int(teamB_id),
 
+            # Seed IDs
+            "teamA_seed": int(row["W_Seed"]),
+            "teamB_seed": int(row["L_Seed"]),
+
             # Team Elo ratings
             "teamA_elo": float(teamA_elo),
             "teamB_elo": float(teamB_elo),
@@ -164,7 +168,7 @@ def build_examples(
                 team_histories[L_team].append(L_entry)
 
             # Update Elos post-game 
-            new_A_elo, new_B_elo = get_new_elos(teamA_elo, teamB_elo, k=20.0)
+            new_A_elo, new_B_elo = get_new_elos(teamA_elo, teamB_elo)
             team_elos[W_team] = new_A_elo
             team_elos[L_team] = new_B_elo
 
