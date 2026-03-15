@@ -15,7 +15,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from .epoch   import run_epoch
 from .metrics import print_epoch_summary, print_best_epoch
 
-MIN_EPOCHS = 40
+MIN_EPOCHS = 30
 
 # ================================================================================
 # Training loop
