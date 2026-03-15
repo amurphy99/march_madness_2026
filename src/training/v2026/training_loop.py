@@ -8,14 +8,20 @@ import torch, os
 
 from pathlib   import Path
 from tqdm.auto import tqdm
+
 from torch.nn                 import Module
+from torch.optim              import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+
+
 
 # From this project
 from .epoch   import run_epoch
 from .metrics import print_epoch_summary, print_best_epoch
 
-MIN_EPOCHS = 30
+# Give it 20 epochs minimum before any scheduling or early stopping kicks in
+MIN_EPOCHS = 20
 
 # ================================================================================
 # Training loop
@@ -45,11 +51,11 @@ def train_model_v2(
         # Extra loss config (for alternate models)
         use_mean_var_loss: bool = False,
 
-        # Optimizer / scheduler
-        optimizer = None,
-        scheduler = None,
-        grad_clip_norm          : float | None = None,
-        early_stopping_patience : int   | None = None, # Early Stopping
+        # Optimizer & Scheduler
+        optimizer               : Optimizer   | None = None,
+        scheduler               : LRScheduler | None = None,
+        early_stopping_patience : int         | None = None, # Early Stopping
+        grad_clip_norm          : float       | None = None,
 
         # Logging
         verbose: int = 1,

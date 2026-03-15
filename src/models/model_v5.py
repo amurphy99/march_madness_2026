@@ -230,8 +230,5 @@ class MarchMadnessModel_v5(nn.Module):
         box_mu      = self.box_score_mu     (x)
         box_log_var = self.box_score_log_var(x)
         win_logit   = self.win_out          (x).squeeze(-1)
-        #win_prob   = torch.sigmoid(win_logit)
-
-        return (box_mu, box_log_var), win_logit # win_logit | win_prob
-
-
+ 
+        return (box_mu, box_log_var), win_logit

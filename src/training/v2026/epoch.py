@@ -85,16 +85,18 @@ def run_epoch(
 
         if is_training: optimizer.zero_grad(set_to_none=True)
 
-        # --------------------------------------------------------------------------------
+        # ================================================================================
         # 2) Forward pass
-        # --------------------------------------------------------------------------------
+        # ================================================================================
         with torch.set_grad_enabled(is_training):
             
             # Unpack differently depending on the model architecture
             if use_mean_var_loss: (box_mu, box_log_var), win_logit = model(batch)
             else:                 box_score_pred,        win_logit = model(batch)
 
-            # Box-score loss
+            # --------------------------------------------------------------------------------
+            # Box-Score Loss
+            # --------------------------------------------------------------------------------
             if use_box_loss: 
                 # Gaussian NLL Loss vs. Standard L1/Huber Loss for older models
                 if use_mean_var_loss: loss_box = gaussian_nll_loss(box_mu, target_box_score, box_log_var)
@@ -102,10 +104,19 @@ def run_epoch(
             else:            
                 loss_box = torch.zeros((), device=device)
 
-            # Win prediction loss
-            loss_win = win_loss_fn(win_logit, target_win)
+            # --------------------------------------------------------------------------------
+            # Win Prediction Loss
+            # --------------------------------------------------------------------------------
+            # All models now always return the logit only; if we have MSELoss, we do sigmoid here
+            win_proba = torch.sigmoid(win_logit)
 
-            # Combined loss
+            # For MSELoss, use `win_proba` instead of the logit            
+            if win_loss_fn == nn.MSELoss: loss_win = win_loss_fn(win_proba, target_win)
+            else:                         loss_win = win_loss_fn(win_logit, target_win)
+
+            # --------------------------------------------------------------------------------
+            # Combined Loss
+            # --------------------------------------------------------------------------------
             loss = (box_loss_weight * loss_box) + (win_loss_weight * loss_win)
 
             # Backpropagation if training
@@ -125,7 +136,7 @@ def run_epoch(
         # --------------------------------------------------------------------------------
         # 4) Win prediction metrics
         # --------------------------------------------------------------------------------
-        win_prob   = torch.sigmoid(win_logit)
+        win_prob   = win_proba
         win_target = target_win
 
         # Accuracy: threshold at 0.5
