@@ -3,6 +3,9 @@ Log metric progress during the training loop
 --------------------------------------------------------------------------------
 `src.training.v2026.metrics`
 
+TODO: Still room for some better highlighting if I want to do stuff like that
+TODO: Could also add statements for learning rate updates
+
 """
 from ...utils.logging import RESET, BOLD, UNBOLD, BRIGHT_GREY, HLINE
 

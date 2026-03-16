@@ -108,7 +108,7 @@ def run_epoch(
             sample_weights = sample_weights / sample_weights.mean()
 
             # --------------------------------------------------------------------------------
-            # Win Prediction Loss
+            # a) Win Prediction Loss
             # --------------------------------------------------------------------------------
             # All models now always return the logit only; if we have MSELoss, we do sigmoid here
             win_proba = torch.sigmoid(win_logit)
@@ -129,7 +129,7 @@ def run_epoch(
             loss_win = (loss_win_raw * sample_weights).mean()
 
             # --------------------------------------------------------------------------------
-            # Box-Score Loss
+            # b) Box-Score Loss
             # --------------------------------------------------------------------------------
             if use_box_loss: 
                 # Gaussian NLL Loss vs. Standard L1/Huber Loss for older models
@@ -139,7 +139,7 @@ def run_epoch(
                 loss_box = torch.zeros((), device=device)
 
             # --------------------------------------------------------------------------------
-            # Combined Loss
+            # c) Combined Loss
             # --------------------------------------------------------------------------------
             loss = (box_loss_weight * loss_box) + (win_loss_weight * loss_win)
 
