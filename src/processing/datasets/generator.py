@@ -18,8 +18,8 @@ from typing      import Any
 # From this project
 from ...config              import W_TEAM_STAT_COLS, L_TEAM_STAT_COLS, BOX_SCORE_COLS
 from ...config              import DEFAULT_HISTORY_LEN
-from  ..features.elo_rating import get_new_elos
-from   .history             import make_team_history_entry, history_to_arrays
+from  ..features.elo_rating import get_new_elos, STARTING_ELO
+from   .history             import make_team_history_entry, history_to_arrays, normalize_loc_for_team
 
 
 # --------------------------------------------------------------------------------
@@ -46,6 +46,24 @@ def make_current_game_targets(row: pd.Series, teamA_ID, teamB_ID) -> tuple[np.nd
 
     # Return the box score targets and the win flag
     return teamA_stats, teamB_stats, np.float32(target_win)
+
+# --------------------------------------------------------------------------------
+# Get data from a game for Elo updates
+# --------------------------------------------------------------------------------
+def get_elo_information(row: pd.Series) -> tuple[float, bool, bool]:
+    """
+    Even the compact results have this information for all games.
+    """
+    # Score margin
+    margin = row["WScore"] - row["LScore"]
+
+    # Home-court advantage (gives 1 (home), 0 (neutral), or -1 (away))
+    loc_num   = normalize_loc_for_team(wloc=row["WLoc"], is_winner=True)
+    is_home_w = loc_num ==  1
+    is_home_l = loc_num == -1
+
+    return margin, is_home_w, is_home_l
+
 
 # ================================================================================
 # Build all model examples chronologically without future leakage
@@ -79,7 +97,7 @@ def build_examples(
     else:                      team_histories = deepcopy(team_histories)
 
     # Initialize Elos (Standard starting Elo is 1500)
-    if team_elos is None: team_elos = defaultdict(lambda: 1500.0)
+    if team_elos is None: team_elos = defaultdict(lambda: STARTING_ELO)
     else:                 team_elos = deepcopy(team_elos)
 
     # Storage for the final output examples
@@ -156,9 +174,9 @@ def build_examples(
             "target_win"             : target_win,       # From Team A's perspective
         })
 
-        # --------------------------------------------------------------------------------
+        # ================================================================================
         # Update team histories & Elo ratings
-        # --------------------------------------------------------------------------------
+        # ================================================================================
         # We don't always update the history (secondary tournament games have no box scores)
         if update_hist:
             if has_box:
@@ -168,8 +186,14 @@ def build_examples(
                 team_histories[W_team].append(W_entry)
                 team_histories[L_team].append(L_entry)
 
+            # --------------------------------------------------------------------------------
             # Update Elos post-game 
-            new_A_elo, new_B_elo = get_new_elos(teamA_elo, teamB_elo)
+            # --------------------------------------------------------------------------------
+            # Get data for adjustments 
+            margin, is_home_w, is_home_l = get_elo_information(row)
+            new_A_elo, new_B_elo = get_new_elos(teamA_elo, teamB_elo, margin, is_home_w, is_home_l)
+
+            # Adjust team Elo ratings
             team_elos[W_team_school] = new_A_elo
             team_elos[L_team_school] = new_B_elo
 

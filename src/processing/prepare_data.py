@@ -23,10 +23,13 @@ def load_data(
         DATA_PATH: str, 
         TOURNEY  : str, 
         *, 
-        num_past_years      : int  = DEFAULT_PAST_YEARS, 
         scale_data          : bool = True, # If we should apply a pre-trained StandardScaler to the box scores
         convert_IDs_to_ints : bool = True, # If we should already convert the IDs
         verbose             : int  = 1,
+
+        # Which years to get data from
+        num_past_years      : int              = DEFAULT_PAST_YEARS, # Number of years ago to get (e.g., the last 5)
+        do_past_years       : list[int] | None = None                # Direct list of years to train on (e.g., [2018, 2019, ...])
 ):
     # --------------------------------------------------------------------------------
     # 1) Load the raw Kaggle data
@@ -42,14 +45,17 @@ def load_data(
     # --------------------------------------------------------------------------------
     # 2) Apply additional processing methods (team-year ID creation, etc.)
     # --------------------------------------------------------------------------------
-    # Convert the Season column to ints (if they aren't already), then get unique values and sort them.
-    unique_seasons = sorted(tr_df["Season"].astype(int).unique())
+    # Convert the Season column to ints (if they aren't already), then get unique values and sort them
+    unique_seasons  = sorted(tr_df["Season"].astype(int).unique())
+    include_seasons = unique_seasons[-num_past_years:]
 
-    # Filter the DataFrame to only rows where the Season is in the last 5 seasons
-    last_five_seasons = unique_seasons[-num_past_years:]
-    rs_df = rs_df[rs_df["Season"].astype(int).isin(last_five_seasons)]
-    st_df = st_df[st_df["Season"].astype(int).isin(last_five_seasons)]
-    tr_df = tr_df[tr_df["Season"].astype(int).isin(last_five_seasons)]
+    # If given specific past years, use them; otherwise use data from the past X seasons
+    if do_past_years: include_seasons = do_past_years
+    
+    # Filter the DataFrame to only rows for the seasons we want to train on
+    rs_df = rs_df[rs_df["Season"].astype(int).isin(include_seasons)]
+    st_df = st_df[st_df["Season"].astype(int).isin(include_seasons)]
+    tr_df = tr_df[tr_df["Season"].astype(int).isin(include_seasons)]
 
     # Scaling args
     scale_args = dict(scale_data=scale_data, tourney=TOURNEY, years=num_past_years)
@@ -65,7 +71,7 @@ def load_data(
     if verbose: 
         print(
             f"Loaded data for {BOLD}{BLUE}{'MENS' if (TOURNEY=='M') else 'WOMENS'}{RESET} tournament. \n"
-            f"Seasons included (last {BLUE}{num_past_years}{RESET} years): {BLUE}{last_five_seasons}{RESET} \n"
+            f"Seasons included (last {BLUE}{num_past_years}{RESET} years): {BLUE}{include_seasons}{RESET} \n"
         )
 
     # --------------------------------------------------------------------------------

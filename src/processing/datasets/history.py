@@ -21,7 +21,7 @@ from ...config import DEFAULT_HISTORY_LEN
 # --------------------------------------------------------------------------------
 # Get the location for the given team's perspective
 # --------------------------------------------------------------------------------
-def _normalize_loc_for_team(wloc: str, is_winner: bool) -> int:
+def normalize_loc_for_team(wloc: str, is_winner: bool) -> int:
     """
     Returns location from the given team's perspective:
     1 = home, 0 = neutral, -1 = away
@@ -53,7 +53,7 @@ def make_team_history_entry(row: pd.Series, team_id: int, opp_id: int, is_winner
     # Additional Stats
     win_flag = float(is_winner)
     margin   = float(team_stats[0] - opp_stats[0])   # Score diff
-    loc      = float(_normalize_loc_for_team(row["WLoc"], is_winner))
+    loc      = float(normalize_loc_for_team(row["WLoc"], is_winner))
     num_ot   = float(row.get("NumOT", 0))
 
     # Data entry
@@ -113,7 +113,7 @@ def history_to_arrays(history_deque: deque, history_len: int = DEFAULT_HISTORY_L
 
 
 # ================================================================================
-# Build chronological per-team game history
+# [DEPRECATED] Build chronological per-team game history
 # ================================================================================
 def build_team_histories(df: pd.DataFrame, *, history_len: int = DEFAULT_HISTORY_LEN, verbose: int = 1) -> dict[str, deque]:
     """
