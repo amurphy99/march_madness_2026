@@ -133,6 +133,14 @@ class MarchMadnessModel_v3(nn.Module):
         teamA_id = batch["teamA_id"]
         teamB_id = batch["teamB_id"]
 
+        # Get the seed IDs
+        teamA_seed = batch["teamA_seed"]
+        teamB_seed = batch["teamB_seed"]
+
+        # 1) Embedding lookup for the teams
+        team_A_emb = self.team_embedding(teamA_id)
+        team_B_emb = self.team_embedding(teamB_id)
+
         # 1) Get and normalize Elo ratings
         # Normalizing to keep values roughly between -2.0 and 2.0
         teamA_elo = (batch["teamA_elo"].unsqueeze(-1) - 1500.0) / 400.0  # (B, 1)

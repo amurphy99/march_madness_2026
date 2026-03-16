@@ -23,7 +23,9 @@ class MarchMadnessModel_v2(nn.Module):
     def __init__(
         self,
         num_teams,
-        team_embed_dim,
+        num_seeds,
+        team_embed_dim: int = 96,
+        seed_embed_dim: int = 32,
         *,
         hist_numeric_dim = HIST_NUMERIC_DIM,
         history_len      = DEFAULT_HISTORY_LEN,
@@ -38,7 +40,8 @@ class MarchMadnessModel_v2(nn.Module):
         self.history_len = history_len
 
         # Shared team embedding table (0th index is reserved for padding historical opponent IDs)
-        self.team_embedding = nn.Embedding(num_teams, team_embed_dim, padding_idx=0)
+        self.team_embedding = nn.Embedding(num_teams, team_embed_dim)
+        self.seed_embedding = nn.Embedding(num_seeds, seed_embed_dim)
 
         # Per-timestep history feature projection (game stats + opponent embedding)
         self.hist_input_proj = nn.Linear(hist_numeric_dim + team_embed_dim, hist_hidden_dim)
@@ -133,21 +136,25 @@ class MarchMadnessModel_v2(nn.Module):
     # Forward pass 
     # ================================================================================
     def forward(self, batch):
-        # Current matchup team IDs
+        # 1) Get current team embeddings
         teamA_id = batch["teamA_id"]
         teamB_id = batch["teamB_id"]
+        teamA_emb = self.team_embedding(teamA_id)       # (B, E)
+        teamB_emb = self.team_embedding(teamB_id)       # (B, E)
 
-        # 1) Get and normalize Elo ratings
+        # 2) Embedding lookup for the seeds
+        teamA_seed = batch["teamA_seed"]
+        teamB_seed = batch["teamB_seed"]
+        team_A_seed_emb = self.seed_embedding(teamA_seed)
+        team_B_seed_emb = self.seed_embedding(teamB_seed)
+
+        # 2) Get and normalize Elo ratings
         # Normalizing to keep values roughly between -2.0 and 2.0
         teamA_elo = (batch["teamA_elo"].unsqueeze(-1) - 1500.0) / 400.0  # (B, 1)
         teamB_elo = (batch["teamB_elo"].unsqueeze(-1) - 1500.0) / 400.0  # (B, 1)
         elo_diff  = teamA_elo - teamB_elo
 
-        # 2) Get current team embeddings
-        teamA_emb = self.team_embedding(teamA_id)       # (B, E)
-        teamB_emb = self.team_embedding(teamB_id)       # (B, E)
-
-        # 3) Process histories
+        # 4) Process histories
         teamA_hist = self.encode_history(
             batch["teamA_hist_numeric"],
             batch["teamA_hist_opp_ids"],
@@ -160,15 +167,25 @@ class MarchMadnessModel_v2(nn.Module):
             batch["teamB_hist_mask"   ],
         )
 
-        # 4) Calculate differences
+        # 5) Calculate differences
         #current_diff = teamA_emb  - teamB_emb
         #hist_diff    = teamA_hist - teamB_hist
 
         # Fuse everything
         x = torch.cat([
-            teamA_emb, teamB_emb, 
+            # Team embeddings
+            teamA_emb,  teamB_emb, 
+
+            # Seed embeddings
+            team_A_seed_emb, team_B_seed_emb,
+
+            # Histories
             teamA_hist, teamB_hist, 
-            #current_diff, hist_diff
+
+            # Diffs
+            #current_diff, hist_diff,
+
+            # Elos
             teamA_elo,  teamB_elo,  elo_diff,
         ], dim=-1)
 
