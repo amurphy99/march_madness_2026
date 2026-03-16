@@ -95,14 +95,17 @@ def run_epoch(
             else:                 box_score_pred,        win_logit = model(batch)
 
             # --------------------------------------------------------------------------------
-            # Box-Score Loss
+            # Seed-Weighted Modifiers
             # --------------------------------------------------------------------------------
-            if use_box_loss: 
-                # Gaussian NLL Loss vs. Standard L1/Huber Loss for older models
-                if use_mean_var_loss: loss_box = gaussian_nll_loss(box_mu, target_box_score, box_log_var)
-                else:                 loss_box = box_loss_fn(box_score_pred, target_box_score)
-            else:            
-                loss_box = torch.zeros((), device=device)
+            # batch["teamA_seed"] is > 0 if they made the tournament, 0 otherwise.
+            A_is_tourney = (batch["teamA_seed"] > 0).float()
+            B_is_tourney = (batch["teamB_seed"] > 0).float()
+
+            # Base game weight is 1.0 (1 Tourney Team = 2.0 weight; 2 Tourney Teams = 3.0 weight).
+            sample_weights = 1.0 + (A_is_tourney * 1.0) + (B_is_tourney * 1.0)
+
+            # Normalize the weights so the batch average remains 1.0 (prevents learning rate from exploding).
+            sample_weights = sample_weights / sample_weights.mean()
 
             # --------------------------------------------------------------------------------
             # Win Prediction Loss
@@ -111,8 +114,29 @@ def run_epoch(
             win_proba = torch.sigmoid(win_logit)
 
             # For MSELoss, use `win_proba` instead of the logit            
-            if isinstance(win_loss_fn, nn.MSELoss): loss_win = win_loss_fn(win_proba, target_win)
-            else:                                   loss_win = win_loss_fn(win_logit, target_win)
+            #if isinstance(win_loss_fn, nn.MSELoss): loss_win = win_loss_fn(win_proba, target_win)
+            #else:                                   loss_win = win_loss_fn(win_logit, target_win)
+
+            # Calculate absolute error
+            error = torch.abs(target_win - win_proba)
+
+            # Focal MSE = Error^(2 + gamma)
+            # gamma=1.0 means we are cubing the error instead of squaring it
+            gamma = 0.5
+            loss_win_raw = error ** (2.0 + gamma)
+
+            # Apply the Seed Weights and average across the batch
+            loss_win = (loss_win_raw * sample_weights).mean()
+
+            # --------------------------------------------------------------------------------
+            # Box-Score Loss
+            # --------------------------------------------------------------------------------
+            if use_box_loss: 
+                # Gaussian NLL Loss vs. Standard L1/Huber Loss for older models
+                if use_mean_var_loss: loss_box = gaussian_nll_loss(box_mu, target_box_score, box_log_var)
+                else:                 loss_box = box_loss_fn(box_score_pred, target_box_score)
+            else:            
+                loss_box = torch.zeros((), device=device)
 
             # --------------------------------------------------------------------------------
             # Combined Loss
