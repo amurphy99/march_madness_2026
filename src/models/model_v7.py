@@ -23,8 +23,8 @@ class MarchMadnessModel_v7(nn.Module):
         num_seeds      : int, 
         team_embed_dim : int, 
         seed_embed_dim : int, 
-        middle_dim: int = 256,
-        dropout: float = 0.25,
+        middle_dim     : int   = 256,
+        dropout        : float = 0.25,
     ):
         super(MarchMadnessModel_v7, self).__init__()
         self.dropout = dropout

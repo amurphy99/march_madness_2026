@@ -16,7 +16,7 @@ from ..config import BOX_SCORE_DIM
 # ================================================================================
 class MarchMadnessModel_v1(nn.Module):
 
-    def __init__(self, num_teams, num_seeds, team_embed_dim, seed_embed_dim, dropout):
+    def __init__(self, num_teams, num_seeds, team_embed_dim, seed_embed_dim, middle_dim: int = 256, dropout: float = 0.25):
         super(MarchMadnessModel_v1, self).__init__()
         self.dropout = dropout
         
@@ -27,10 +27,10 @@ class MarchMadnessModel_v1(nn.Module):
         in_dim = (team_embed_dim + seed_embed_dim) * 2
 
         # MLP backbone with batch norm
-        self.linear_1 = nn.Linear(in_dim, 256)
-        self.bn_1     = nn.BatchNorm1d(256)
+        self.linear_1 = nn.Linear(in_dim, middle_dim)
+        self.bn_1     = nn.BatchNorm1d(middle_dim)
 
-        self.linear_2 = nn.Linear(256, 64)
+        self.linear_2 = nn.Linear(middle_dim, 64)
         self.bn_2     = nn.BatchNorm1d(64)
 
         # Outputs

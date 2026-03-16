@@ -69,14 +69,16 @@ def get_elo_information(row: pd.Series) -> tuple[float, bool, bool]:
 # Build all model examples chronologically without future leakage
 # ================================================================================
 def build_examples(
-        df          : pd.DataFrame,                          # Box score results/data for games
-        history_len : int = DEFAULT_HISTORY_LEN,             # How many games to keep in the history
+        df          : pd.DataFrame,                       # Box score results/data for games
+        history_len : int = DEFAULT_HISTORY_LEN,          # How many games to keep in the history
         *,
         team_histories : dict[str, deque] | None = None,  # Can pass the end of regular season history to tournaments
         team_elos      : dict[int, float] | None = None,  # Elo tracker
         
-        update_hist : bool = True,                           # Whether or not to update the team histories
-        has_box     : bool = True,                           # Secondary tournament games have no box score data
+        update_hist : bool = True,                        # Whether or not to update the team histories
+        has_box     : bool = True,                        # Secondary tournament games have no box score data
+
+        verbose     : bool = True,
 
 ) -> tuple[list[dict[str, Any]], dict[str, deque], dict[int, float]]:
     """
@@ -106,7 +108,7 @@ def build_examples(
     # --------------------------------------------------------------------------------
     # Loop through each game in chronological order
     # --------------------------------------------------------------------------------
-    pbar = tqdm(df.iterrows(), desc="Building team histories & training examples", total=len(df), leave=True)
+    pbar = tqdm(df.iterrows(), desc="Building team histories & training examples", total=len(df), leave=verbose)
     for row_idx, row in pbar:
         # School IDs for the two teams 
         W_team_school = row["WTeamID"]

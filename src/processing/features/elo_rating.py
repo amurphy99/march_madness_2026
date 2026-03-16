@@ -12,6 +12,7 @@ import math
 # Configuration
 # --------------------------------------------------------------------------------
 STARTING_ELO = 1_500.0  # Standard starting Elo is 1,500
+ELO_WIDTH    =   400.0
 ELO_K        =    50.0  # Maximum possible Elo change from a single game
 
 
