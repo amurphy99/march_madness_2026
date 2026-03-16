@@ -16,7 +16,7 @@ TODO: Edit VSCode settings to make it so that some of this stuff is still blue,
 TEAM_BOX_SCORE_COLUMNS = ["Score", "2FGM", "2FGA", "3FGM", "3FGA", "FTM", "FTA", "OR", "DR", "Ast", "TO", "Stl", "Blk", "PF"]
 
 W_TEAM_STAT_COLS = [f"W{stat}" for stat in TEAM_BOX_SCORE_COLUMNS]
-L_TEAM_STAT_COLS = [f"W{stat}" for stat in TEAM_BOX_SCORE_COLUMNS]
+L_TEAM_STAT_COLS = [f"L{stat}" for stat in TEAM_BOX_SCORE_COLUMNS]
 
 # Combined box score
 BOX_SCORE_COLS = W_TEAM_STAT_COLS + L_TEAM_STAT_COLS
@@ -24,6 +24,18 @@ BOX_SCORE_DIM  = len(BOX_SCORE_COLS)
 
 # Current numeric historical data dimensions (both team box scores + three extra stats: margin, loc, num_ot)
 HIST_NUMERIC_DIM = len(BOX_SCORE_COLS) + 3
+
+# Point column locations within the box score output
+POINT_COL_IDX = {
+    "W2FGM" : BOX_SCORE_COLS.index("W2FGM"),
+    "W3FGM" : BOX_SCORE_COLS.index("W3FGM"),
+    "WFTM"  : BOX_SCORE_COLS.index("WFTM" ),
+
+    "L2FGM" : BOX_SCORE_COLS.index("L2FGM"),
+    "L3FGM" : BOX_SCORE_COLS.index("L3FGM"),
+    "LFTM"  : BOX_SCORE_COLS.index("LFTM" ),
+}
+
 
 # --------------------------------------------------------------------------------
 # Default Pre-processing Config
@@ -34,8 +46,6 @@ DEFAULT_PAST_YEARS = 10
 # Number of previous games to store in each team's history
 DEFAULT_HISTORY_LEN = 10
 
-# Maximum possible Elo change from a single game
-ELO_K = 50.0
 
 # --------------------------------------------------------------------------------
 # Default Training Config
