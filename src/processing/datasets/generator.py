@@ -54,10 +54,11 @@ def build_examples(
         df          : pd.DataFrame,                          # Box score results/data for games
         history_len : int = DEFAULT_HISTORY_LEN,             # How many games to keep in the history
         *,
-        team_histories    : dict[str, deque] | None = None,  # Can pass the end of regular season history to tournaments
-        team_elos         : dict[int, float] | None = None,  # Elo tracker
-        update_history    : bool = True,                     # Whether or not to update the team histories
-        has_full_boxscore : bool = True,                     # Secondary tournament games have no box score data
+        team_histories : dict[str, deque] | None = None,  # Can pass the end of regular season history to tournaments
+        team_elos      : dict[int, float] | None = None,  # Elo tracker
+        
+        update_hist : bool = True,                           # Whether or not to update the team histories
+        has_box     : bool = True,                           # Secondary tournament games have no box score data
 
 ) -> tuple[list[dict[str, Any]], dict[str, deque], dict[int, float]]:
     """
@@ -104,15 +105,15 @@ def build_examples(
         teamB_id = L_team
 
         # Get current Elos
-        teamA_elo = team_elos[W_team]
-        teamB_elo = team_elos[L_team]
+        teamA_elo = team_elos[W_team_school]
+        teamB_elo = team_elos[L_team_school]
 
         # Individual team historic data
         teamA_hist_numeric, teamA_hist_opp_ids, teamA_hist_mask = history_to_arrays(team_histories[teamA_id], history_len=history_len)
         teamB_hist_numeric, teamB_hist_opp_ids, teamB_hist_mask = history_to_arrays(team_histories[teamB_id], history_len=history_len)
 
         # Create targets for this game (or fill with 0s if no data)
-        if has_full_boxscore:
+        if has_box:
             teamA_box_score, teamB_box_score, target_win = make_current_game_targets(row, teamA_id, teamB_id)
         else:
             num_team_boxscore_features = len(W_TEAM_STAT_COLS)
@@ -159,8 +160,8 @@ def build_examples(
         # Update team histories & Elo ratings
         # --------------------------------------------------------------------------------
         # We don't always update the history (secondary tournament games have no box scores)
-        if update_history:
-            if has_full_boxscore:
+        if update_hist:
+            if has_box:
                 # Generate a history entry for this game and save it
                 W_entry = make_team_history_entry(row, team_id=W_team, opp_id=L_team, is_winner=True )
                 L_entry = make_team_history_entry(row, team_id=L_team, opp_id=W_team, is_winner=False)
@@ -169,8 +170,8 @@ def build_examples(
 
             # Update Elos post-game 
             new_A_elo, new_B_elo = get_new_elos(teamA_elo, teamB_elo)
-            team_elos[W_team] = new_A_elo
-            team_elos[L_team] = new_B_elo
+            team_elos[W_team_school] = new_A_elo
+            team_elos[L_team_school] = new_B_elo
 
-    return examples, team_histories
+    return examples, team_histories, team_elos
 

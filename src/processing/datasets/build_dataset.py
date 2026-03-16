@@ -129,8 +129,8 @@ class MarchMadnessHistoryDataset(Dataset):
             "teamB_seed" : torch.tensor(teamB_seed, dtype=torch.long),
 
             # Team Elo ratings
-            "teamA_elo" : torch.tensor(teamA_elo, dtype=torch.long),
-            "teamB_elo" : torch.tensor(teamB_elo, dtype=torch.long),
+            "teamA_elo" : torch.tensor(teamA_elo, dtype=torch.float32),
+            "teamB_elo" : torch.tensor(teamB_elo, dtype=torch.float32),
             
             # Team A historic stats
             "teamA_hist_numeric" : torch.tensor(teamA_hist_numeric, dtype=torch.float32),
