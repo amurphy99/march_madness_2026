@@ -16,9 +16,10 @@ from tqdm.auto   import tqdm
 from typing      import Any
 
 # From this project
-from ...config              import W_TEAM_STAT_COLS, L_TEAM_STAT_COLS, BOX_SCORE_COLS
+from ...config              import W_TEAM_STAT_COLS, L_TEAM_STAT_COLS
 from ...config              import DEFAULT_HISTORY_LEN
 from  ..features.elo_rating import get_new_elos, STARTING_ELO
+from  ..utils.game_queue    import append_seed_pruned
 from   .history             import make_team_history_entry, history_to_arrays, normalize_loc_for_team
 
 
@@ -95,7 +96,7 @@ def build_examples(
     # Initialize Histories (histories from the end of the regular season will be provided for tournament games)
     # --------------------------------------------------------------------------------
     # If not provided with starting historical data, create a fresh dictionary
-    if team_histories is None: team_histories = defaultdict(lambda: deque(maxlen=history_len))
+    if team_histories is None: team_histories = defaultdict(lambda: deque()) # maxlen=history_len
     else:                      team_histories = deepcopy(team_histories)
 
     # Initialize Elos (Standard starting Elo is 1500)
@@ -185,8 +186,13 @@ def build_examples(
                 # Generate a history entry for this game and save it
                 W_entry = make_team_history_entry(row, team_id=W_team, opp_id=L_team, is_winner=True )
                 L_entry = make_team_history_entry(row, team_id=L_team, opp_id=W_team, is_winner=False)
-                team_histories[W_team].append(W_entry)
-                team_histories[L_team].append(L_entry)
+
+                # Use the new helper that manually controls the deque length
+                append_seed_pruned(team_histories[W_team], W_entry, history_len)
+                append_seed_pruned(team_histories[L_team], L_entry, history_len)
+
+                #team_histories[W_team].append(W_entry)
+                #team_histories[L_team].append(L_entry)
 
             # --------------------------------------------------------------------------------
             # Update Elos post-game 

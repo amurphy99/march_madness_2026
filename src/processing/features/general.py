@@ -20,9 +20,14 @@ from ...utils.logging import RESET, BOLD, UNBOLD, BLUE
 
 
 # --------------------------------------------------------------------------------
-# Add a seed column to the game data using the seed data
+# [DEPRECATED] Add a seed column to the game data using the seed data
 # --------------------------------------------------------------------------------
-def prep_seeds_df(seeds_df: pd.DataFrame) -> tuple[pd.DataFrame, np.ndarray, dict[str, int]]:
+def prep_seeds_df_v0(seeds_df: pd.DataFrame) -> tuple[pd.DataFrame, np.ndarray, dict[str, int]]:
+    """
+    [DEPRECATED] 
+    This version included the region prefixes for seeds (e.g., "X12" or "X16"), so there were
+    64 unique seeds in total. The new verion fixes this to be just 16.
+    """
     # Trim off the end pieces that are sometimes on the seeds
     seeds_df["Seed"] = seeds_df["Seed"].astype(str).str[:3]
 
@@ -34,6 +39,31 @@ def prep_seeds_df(seeds_df: pd.DataFrame) -> tuple[pd.DataFrame, np.ndarray, dic
     # Create a dictionary to map seeds to teams with
     seed_for_team = dict(zip(seeds_df["YearTeamID"], seeds_df["Seed"]))
     
+    # Return three things
+    return seeds_df, unique_seeds, seed_for_team
+
+# --------------------------------------------------------------------------------
+# Add a seed column to the game data using the seed data
+# --------------------------------------------------------------------------------
+def prep_seeds_df(seeds_df: pd.DataFrame) -> tuple[pd.DataFrame, np.ndarray, dict[str, int]]:
+    seeds_df = seeds_df.copy()
+
+    # Keep original raw seed string
+    seeds_df["SeedRaw"] = seeds_df["Seed"].astype(str)
+
+    # Extract just the numeric seed value (1-16) from strings like: W01, X12, Z16a, Y16b, etc.
+    seeds_df["Seed"] = (
+        seeds_df["SeedRaw"]
+        .str.extract(r"(\d{1,2})", expand=False)
+        .astype(int)
+    )
+
+    # Create a dictionary to map team-year IDs to ordinal seed rank
+    seed_for_team = dict(zip(seeds_df["YearTeamID"], seeds_df["Seed"]))
+
+    # Unique seed values in sorted order: [1, 2, ..., 16]
+    unique_seeds = np.sort(seeds_df["Seed"].unique())
+
     # Return three things
     return seeds_df, unique_seeds, seed_for_team
 

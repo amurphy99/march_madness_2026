@@ -41,14 +41,17 @@ def make_team_history_entry(row: pd.Series, team_id: int, opp_id: int, is_winner
     """
     At this point, we should have already mapped the string team IDs to integers.
     """
-    # Box score stats (from the perspective of the given team)
+    # Box score stats + SeedIDs (from the perspective of the given team)
     if is_winner:
         team_stats = row[W_TEAM_STAT_COLS].to_numpy(dtype=np.float32)
         opp_stats  = row[L_TEAM_STAT_COLS].to_numpy(dtype=np.float32)
-        
+        team_seed  = int(row["W_Seed"])
+        opp_seed   = int(row["L_Seed"])
     else:
         team_stats = row[L_TEAM_STAT_COLS].to_numpy(dtype=np.float32)
         opp_stats  = row[W_TEAM_STAT_COLS].to_numpy(dtype=np.float32)
+        team_seed  = int(row["L_Seed"])
+        opp_seed   = int(row["W_Seed"])
 
     # Additional Stats
     win_flag = float(is_winner)
@@ -58,14 +61,27 @@ def make_team_history_entry(row: pd.Series, team_id: int, opp_id: int, is_winner
 
     # Data entry
     entry = {
+        # Team IDs
         "team_id"    : team_id,
         "opp_id"     :  opp_id,
+
+        # Team SeedIDs
+        "team_seed"  : team_seed,
+        "opp_seed"   : opp_seed,
+
+        # Win flag
+        "win"        : win_flag,
+
+        # Date of the game
         "season"     : int(row["Season"]),
         "daynum"     : int(row["DayNum"]),
+
+        # Box score stats
         "team_stats" : team_stats,     # shape (14,)
         "opp_stats"  :  opp_stats,     # shape (14,)
+
+        # Additional values
         "margin"     : margin,
-        "win"        : win_flag,
         "loc"        : loc,
         "num_ot"     : num_ot,
     }
