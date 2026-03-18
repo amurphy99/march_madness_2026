@@ -16,8 +16,10 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data         import DataLoader
 
 # From this project
-from .epoch   import run_epoch
-from .metrics import print_epoch_summary, print_best_epoch
+from  .epoch                   import run_epoch
+from  .metrics                 import print_epoch_summary, print_best_epoch
+from ..utils.loss.loss_tracker import TournamentLossComputer
+
 
 # Give it 20 epochs minimum before any scheduling or early stopping kicks in
 MIN_EPOCHS = 20
@@ -35,8 +37,9 @@ def run_loader_epochs(
         num_epochs : int,
 
         # Epoch Arguments
-        rs_tr_args     : dict,
-        secondary_args : dict,
+        primary_loss_computer   : TournamentLossComputer,
+        secondary_loss_computer : TournamentLossComputer,        
+        shared_args             : dict,
 
         # DataLoaders
         train_loader     : DataLoader, 
@@ -50,14 +53,14 @@ def run_loader_epochs(
 ) -> tuple[dict, float]:
     # 1) Train on regular season
     t0 = time.perf_counter()
-    train_metrics = run_epoch(model, train_loader, optimizer=(optimizer if training else None), **rs_tr_args)
+    train_metrics = run_epoch(model, train_loader, primary_loss_computer, optimizer=(optimizer if training else None), **shared_args)
 
     # 2) Secondary tournament games (classification-only; no box-scores provided)
-    if secondary_loader is not None: secondary_metrics = run_epoch(model, secondary_loader, **secondary_args)
+    if secondary_loader is not None: secondary_metrics = run_epoch(model, secondary_loader, secondary_loss_computer, **shared_args)
     else:                            secondary_metrics = {}
 
     # 3) Validation (NCAA tournament)
-    if val_loader is not None: val_metrics = run_epoch(model, val_loader, **rs_tr_args)
+    if val_loader is not None: val_metrics = run_epoch(model, val_loader, primary_loss_computer, **shared_args)
     else:                      val_metrics = {}
 
     # Print summary
@@ -176,27 +179,33 @@ def train_model_v2(
     # --------------------------------------------------------------------------------
     # Define some shared epoch parameters
     # --------------------------------------------------------------------------------
-    shared = dict(
-        device=device, progress_bar=progress_bar, box_loss_fn=box_loss_fn, win_loss_fn=win_loss_fn,
-        grad_clip_norm=grad_clip_norm, use_mean_var_loss=use_mean_var_loss,
-        use_alpha_beta=use_alpha_beta, alpha_beta_weight=alpha_beta_weight,
+    # Regular Season / NCAA Tournament shared loss computer
+    primary_loss_computer = TournamentLossComputer(
+        # Default loss functions
+        box_loss_fn=box_loss_fn, win_loss_fn=win_loss_fn,
+
+        # If False, skip the loss entirely
+        use_mean_var_loss=use_mean_var_loss, use_alpha_beta=use_alpha_beta, use_box_loss=True,
+        
+        # Weights for each loss function (or task)
+        box_loss_weight=box_loss_weight, win_loss_weight=win_loss_weight, alpha_beta_weight=alpha_beta_weight,
     )
 
-    # Regular season and NCAA tournament shared
-    rs_tr_args = dict(
-        **shared,
-        box_loss_weight = box_loss_weight,
-        win_loss_weight = win_loss_weight,
-        use_box_loss    = True,
+    # Secondary Tournament loss computer (no box loss)
+    secondary_loss_computer = TournamentLossComputer(
+        # Default loss functions
+        box_loss_fn=box_loss_fn, win_loss_fn=win_loss_fn,
+
+        # If False, skip the loss entirely
+        use_mean_var_loss=use_mean_var_loss, use_alpha_beta=use_alpha_beta, use_box_loss=False,
+
+        # Weights for each loss function (or task)
+        box_loss_weight=0.0, win_loss_weight=secondary_win_loss_weight, alpha_beta_weight=alpha_beta_weight, 
     )
-    
-    # Secondary tournament arguments (no box score available)
-    secondary_args = dict(
-        **shared,
-        box_loss_weight = 0.0,
-        win_loss_weight = secondary_win_loss_weight,
-        use_box_loss    = False,
-    )
+
+
+    # Shared epoch parameters
+    shared = dict(device=device, progress_bar=progress_bar, grad_clip_norm=grad_clip_norm)
 
     # --------------------------------------------------------------------------------
     # Do the first epoch in evaluation mode
@@ -204,10 +213,10 @@ def train_model_v2(
     if first_epoch_no_train:
         # Run epochs for all three DataLoaders without training
         epoch_history, _ = run_loader_epochs(
-            model, optimizer, 0, num_epochs,            # Current epoch is "0" since this is before training
-            rs_tr_args, secondary_args,                 # Epoch Arguments
-            train_loader, secondary_loader, val_loader, # DataLoaders
-            verbose=verbose, training=False,            # False when doing an initial epoch with training off    
+            model, optimizer, 0, num_epochs,                         # Current epoch is "0" since this is before training
+            primary_loss_computer, secondary_loss_computer, shared,  # Epoch Arguments
+            train_loader, secondary_loader, val_loader,              # DataLoaders
+            verbose=verbose, training=False,                         # False when doing an initial epoch with training off    
         )
         history.append(epoch_history)
 
@@ -215,12 +224,11 @@ def train_model_v2(
     # Training / validation loop
     # --------------------------------------------------------------------------------
     for epoch in range(1, num_epochs+1):
-
         # Run epochs for all three DataLoaders; training on regular season games only
         epoch_history, epoch_time = run_loader_epochs(
             model, optimizer, epoch, num_epochs,
-            rs_tr_args, secondary_args,                 # Epoch Arguments
-            train_loader, secondary_loader, val_loader, # DataLoaders
+            primary_loss_computer, secondary_loss_computer, shared,  # Epoch Arguments
+            train_loader, secondary_loader, val_loader,              # DataLoaders
             verbose=verbose, training=True, 
         )
         history.append(epoch_history)
@@ -256,7 +264,6 @@ def train_model_v2(
             # If no validation loader, just step standard schedulers
             if (scheduler is not None) and not isinstance(scheduler, ReduceLROnPlateau): scheduler.step()
 
-   
         # Time check
         total_time += epoch_time
         progress_bar.set_postfix({"sec/epoch": f"{(total_time / epoch):.4}s"})
