@@ -9,6 +9,8 @@ TODO: Maybe I should concatenate the team_embedding, seed_embedding, and Elo tog
 TODO: Increase the size of the history
 TODO: Do something fancier when building the values ?
 
+TODO: Change the output to dictionaries
+
 """
 import torch
 import torch.nn            as nn
@@ -38,16 +40,16 @@ class MarchMadnessModel_v8(nn.Module):
         history_len      = DEFAULT_HISTORY_LEN,  # Number of games stored in history
         box_score_dim    = BOX_SCORE_DIM,        # Box-score prediction output dim
         
-        # History Dimensions
-        hist_hidden_dim : int = 64,              # Size of attention values / outputs
-        hist_out_dim    : int = 64,              # Size of post-attention project layer
+        # Attention Config
+        dim_hist_hidden : int = 64,              # Size of attention values / outputs
+        dim_hist_out    : int = 64,              # Size of post-attention project layer
+        num_heads       : int = 4,               # Number of attention heads
         
         # MLP Layer Dimensions
-        middle_dim : int = 128,                  # First linear layer of the MLP
-        dim_outer  : int =  64,                  # Second linear layer of the MLP
+        middle_dim : int = 128,                  # 1st linear layer of the MLP
+        dim_outer  : int =  64,                  # 2nd linear layer of the MLP
 
         # Misc. Config
-        num_heads : int   = 4,                   # Number of attention heads
         dropout   : float = 0.25,                # Training dropout 
     ):
         super().__init__()
@@ -62,32 +64,32 @@ class MarchMadnessModel_v8(nn.Module):
         self.seed_embedding = nn.Embedding(num_seeds, seed_embed_dim, padding_idx=0)
 
         # Position embedding for game history
-        self.pos_embedding = nn.Parameter(torch.randn(1, history_len, hist_hidden_dim)) 
+        self.pos_embedding = nn.Parameter(torch.randn(1, history_len, dim_hist_hidden)) 
 
         # --------------------------------------------------------------------------------
         # Attention Components
         # --------------------------------------------------------------------------------
         # Project history elements (Keys and Values)
-        self.hist_kv_proj = nn.Linear(hist_numeric_dim + team_embed_dim, hist_hidden_dim)
+        self.hist_kv_proj = nn.Linear(hist_numeric_dim + team_embed_dim, dim_hist_hidden)
 
         # Multi-Head Attention layer
         self.attention = nn.MultiheadAttention(
             embed_dim   = team_embed_dim, 
             num_heads   = num_heads, 
-            vdim        = hist_hidden_dim,
+            vdim        = dim_hist_hidden,
             dropout     = dropout, 
             batch_first = True
         )
 
         # Final projection after attention
-        self.hist_fc    = nn.Linear(team_embed_dim, hist_out_dim)
-        self.hist_fc_bn = nn.BatchNorm1d           (hist_out_dim)
+        self.hist_fc    = nn.Linear(team_embed_dim, dim_hist_out)
+        self.hist_fc_bn = nn.BatchNorm1d           (dim_hist_out)
 
         # --------------------------------------------------------------------------------
         # Final fusion MLP 
         # --------------------------------------------------------------------------------
-        # 2 Attention results + 2 seed embeddings + 3 values for the Elo ratings
-        fusion_dim = (hist_out_dim * 2) + (seed_embed_dim * 2) + 3 
+        # 2 attention results + 2 seed embeddings + 3 values for the Elo ratings
+        fusion_dim = (dim_hist_out * 2) + (seed_embed_dim * 2) + 3 
 
         # Linear pass #1
         self.linear_1 = nn.Linear(fusion_dim, middle_dim)
@@ -153,7 +155,7 @@ class MarchMadnessModel_v8(nn.Module):
         attn_out, _ = self.attention(
             query            = query_3d,               # Pure Embedding (team_embed_dim)
             key              = opp_emb,                # Pure Embedding (team_embed_dim)
-            value            = kv,                     # Projected Stats (hist_hidden_dim)
+            value            = kv,                     # Projected Stats (dim_hist_hidden)
             key_padding_mask = padding_mask,
             need_weights     = False
         ) # Output is automatically projected back to (B, 1, team_embed_dim)
@@ -161,7 +163,7 @@ class MarchMadnessModel_v8(nn.Module):
         # Remove the sequence dimension
         attn_out = attn_out.squeeze(1)                 # (B, team_embed_dim)
 
-        # Final projection down to hist_out_dim 
+        # Final projection down to dim_hist_out 
         out = self.hist_fc(attn_out)
         out = self.hist_fc_bn(out)
         out = F.silu(out)
@@ -194,17 +196,17 @@ class MarchMadnessModel_v8(nn.Module):
         # --------------------------------------------------------------------------------
         # Team A searches its history using Team B's embedding as the Query
         teamB_vs_teamA_hist = self.attend_history(
-            current_query_emb = teamB_emb,  # Query
-            hist_numeric      = batch["teamA_hist_numeric"],
-            hist_opp_ids      = batch["teamA_hist_opp_ids"],
-            hist_mask         = batch["teamA_hist_mask"   ],
+            query_emb    = teamB_emb,
+            hist_numeric = batch["teamA_hist_numeric"],
+            hist_opp_ids = batch["teamA_hist_opp_ids"],
+            hist_mask    = batch["teamA_hist_mask"   ],
         )
         # Team B searches its history using Team A's embedding as the Query
         teamA_vs_teamB_hist = self.attend_history(
-            current_query_emb = teamA_emb,  # Query
-            hist_numeric      = batch["teamB_hist_numeric"],
-            hist_opp_ids      = batch["teamB_hist_opp_ids"],
-            hist_mask         = batch["teamB_hist_mask"   ],
+            query_emb    = teamA_emb,
+            hist_numeric = batch["teamB_hist_numeric"],
+            hist_opp_ids = batch["teamB_hist_opp_ids"],
+            hist_mask    = batch["teamB_hist_mask"   ],
         )
 
         # --------------------------------------------------------------------------------
