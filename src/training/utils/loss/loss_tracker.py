@@ -6,13 +6,19 @@ Modulerized loss calculations
 Don't need to touch "run_epoch()" at all anymore when I go to test out different
 loss setups.
 
+TODO: Could also add specific "target_A_points" and "target_B_points" to the loss
+
+TODO: I REALLY want to rename this to "LossHandler" everywhere...
+
 """
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 # From this project
-from .losses import gaussian_nll_loss, evidential_binary_loss
+from    .losses                 import gaussian_nll_loss, evidential_binary_loss
+from    .cauchy                 import CauchyLoss, cauchy_nll_loss  
+from ....models.utils.parse_box import extract_points
 
 
 # ================================================================================
@@ -28,13 +34,19 @@ class TournamentLossComputer(nn.Module):
 
         # If False, skip the loss entirely
         use_box_loss      : bool  = True,
-        use_mean_var_loss : bool  = False,
+        use_mean_var_loss : bool  = True,
         use_alpha_beta    : bool  = True,
+        use_margin_loss   : bool  = False,
 
         # Weights for each loss function (or task)
-        box_loss_weight   : float = 1.0,
-        win_loss_weight   : float = 1.0,
-        alpha_beta_weight : float = 0.0,
+        box_loss_weight    : float = 1.0,
+        win_loss_weight    : float = 1.0,
+        alpha_beta_weight  : float = 1.0,
+        margin_loss_weight : float = 1.0,
+
+        # Cauchy Loss Configuration 
+        use_cauchy_margin  : bool = True,   # Toggle Cauchy for the margin
+        use_cauchy_nll     : bool = False,  # Standard or NLL version 
 
         # Gamma value adjusts the "focal" modifier strength on the loss
         gamma : float = 0.5,  # gamma=1.0 means we are cubing the error instead of squaring it
@@ -49,11 +61,18 @@ class TournamentLossComputer(nn.Module):
         self.use_box_loss      = use_box_loss
         self.use_mean_var_loss = use_mean_var_loss
         self.use_alpha_beta    = use_alpha_beta
+        self.use_margin_loss   = use_margin_loss
 
         # Weights for each loss function (or task)
-        self.box_loss_weight   = box_loss_weight
-        self.win_loss_weight   = win_loss_weight
-        self.alpha_beta_weight = alpha_beta_weight
+        self.box_loss_weight    = box_loss_weight
+        self.win_loss_weight    = win_loss_weight
+        self.alpha_beta_weight  = alpha_beta_weight
+        self.margin_loss_weight = margin_loss_weight
+
+        # Cauchy loss configuration
+        self.use_cauchy_margin = use_cauchy_margin
+        self.use_cauchy_nll    = use_cauchy_nll
+        self.cauchy_loss_fn    = CauchyLoss()       # Initialize the torch module version
 
         # Gamma value adjusts the "focal" modifier strength on the loss
         self.gamma = gamma
@@ -77,6 +96,7 @@ class TournamentLossComputer(nn.Module):
         # Get target values from the batch (make sure target_win has the same shape as win_logit (e.g., [batch_size, 1]))
         target_box_score = batch["target_box_score"].float()
         target_win       = batch["target_win"      ].float().view_as(win_logit) 
+        target_margin    = batch["target_margin"   ].float().view_as(win_logit)
 
         # --------------------------------------------------------------------------------
         # 2) Calculate Sample Weights (Seed Modifiers)
@@ -123,21 +143,59 @@ class TournamentLossComputer(nn.Module):
             loss_alpha_beta = (alpha_beta_raw * sample_weights).mean()
 
         # --------------------------------------------------------------------------------
-        # 6) Combined Loss
+        # 6) Points Margin Loss (Cauchy / NLL)
+        # --------------------------------------------------------------------------------
+        # TODO: Going to start with typical cauchy loss for now, not the mean-var version
+        loss_margin = torch.zeros((), device=device)
+        if self.use_margin_loss:
+            # a) Get predictions and variance
+            margin_pred, margin_std, _, _ = extract_points(box_pred, box_log_var)
+            margin_var = margin_std ** 2 
+            
+            # b) Calculate Loss
+            if self.use_cauchy_margin:
+                # Use Cauchy Negative Log-Likelihood
+                if self.use_cauchy_nll: 
+                     margin_loss_raw = cauchy_nll_loss(
+                        target      = target_margin, 
+                        pred        = margin_pred, 
+                        var         = margin_var, 
+                        return_mean = False # Keep sample dimensions
+                    )
+                # Use standard Cauchy loss
+                else: margin_loss_raw = self.cauchy_loss_fn(margin_pred, target_margin)
+            
+            # Get normal MSE loss of Cauchy is disabled
+            else: margin_loss_raw = F.mse_loss(margin_pred, target_margin, reduction="none")
+            
+            # Apply the seed weights and average across the batch
+            loss_margin = (margin_loss_raw * sample_weights).mean()
+
+        # --------------------------------------------------------------------------------
+        # 7) Combined Loss
         # --------------------------------------------------------------------------------
         total_loss = (
-            (self.box_loss_weight   * loss_box       ) +
-            (self.win_loss_weight   * loss_win       ) +
-            (self.alpha_beta_weight * loss_alpha_beta)
+            (self.box_loss_weight    * loss_box       ) +
+            (self.win_loss_weight    * loss_win       ) +
+            (self.alpha_beta_weight  * loss_alpha_beta) +
+            (self.margin_loss_weight * loss_margin    )
         )
 
         # Pack individual components into a dictionary for easy logging in run_epoch
         loss_dict = {
-            "total"     : total_loss,
-            "box"       : loss_box,
-            "win"       : loss_win,
-            "win_proba" : win_proba,  # passed back so run_epoch can calculate metrics
+            # Primary loss components
+            "total"       : total_loss,
+            "box"         : loss_box,
+            "win"         : loss_win,
+            "margin"      : loss_margin, 
+
+            # Passed back so run_epoch can calculate metrics
+            "win_proba"   : win_proba,
+
+            # Passed back for logging convenience
+            "margin_pred" : margin_pred, 
+            "margin_var"  : margin_var,  
         }
-        
+
         return total_loss, loss_dict
     

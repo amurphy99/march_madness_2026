@@ -5,6 +5,13 @@ PyTorch Dataset for the MarchMadnessPackedData
 
 Uses augmentation method that flips the team order for 50% of game samples.
 
+Not every item in the sample needs to be used my every model. Some will ignore
+the Elo ratings or box scores, etc. This is universal and has everything that
+any of the models will need.
+
+TODO: Must move the points/margin calculations into the generator. This version
+      has them recalculated every time the sample is retrieved. 
+
 """
 import numpy as np
 import torch, random
@@ -12,7 +19,8 @@ import torch, random
 from torch.utils.data import Dataset
 
 # From this project
-from .build_dataclass import MarchMadnessPackedData
+from   .build_dataclass        import MarchMadnessPackedData
+from ...models.utils.parse_box import calculate_margin
 
 
 # ================================================================================
@@ -114,8 +122,14 @@ class MarchMadnessHistoryDataset(Dataset):
         # Concatenate the box score outcome for the game
         target_box_score = np.concatenate([teamA_target_box_score, teamB_target_box_score], axis=0).astype(np.float32)
 
+        # Calculate the margin AFTER the flip (positive for team A)
+        margin, A_points, B_points = calculate_margin(target_box_score)
+
+        # --------------------------------------------------------------------------------
+        # Return the full sample
+        # --------------------------------------------------------------------------------
         return {
-            # Additional info
+            # Additional Game Info
             "season"  : torch.tensor(self.data.season [idx], dtype=torch.long),
             "daynum"  : torch.tensor(self.data.daynum [idx], dtype=torch.long),
             "row_idx" : torch.tensor(self.data.row_idx[idx], dtype=torch.long),
@@ -132,19 +146,24 @@ class MarchMadnessHistoryDataset(Dataset):
             "teamA_elo" : torch.tensor(teamA_elo, dtype=torch.float32),
             "teamB_elo" : torch.tensor(teamB_elo, dtype=torch.float32),
             
-            # Team A historic stats
+            # Team A Historic Statistics
             "teamA_hist_numeric" : torch.tensor(teamA_hist_numeric, dtype=torch.float32),
             "teamA_hist_opp_ids" : torch.tensor(teamA_hist_opp_ids, dtype=torch.long   ),
             "teamA_hist_mask"    : torch.tensor(teamA_hist_mask,    dtype=torch.float32),
 
-            # Team B historic stats
+            # Team B Historic Statistics
             "teamB_hist_numeric" : torch.tensor(teamB_hist_numeric, dtype=torch.float32),
             "teamB_hist_opp_ids" : torch.tensor(teamB_hist_opp_ids, dtype=torch.long   ),
             "teamB_hist_mask"    : torch.tensor(teamB_hist_mask,    dtype=torch.float32),
 
-            # Targets
+            # Primary Targets
             "target_box_score" : torch.tensor(target_box_score, dtype=torch.float32),
             "target_win"       : torch.tensor(target_win,       dtype=torch.float32),
+            
+            # Margin & Point Targets
+            "target_margin"   : torch.tensor(margin,   dtype=torch.float32),
+            "target_A_points" : torch.tensor(A_points, dtype=torch.float32),
+            "target_B_points" : torch.tensor(B_points, dtype=torch.float32),
 
             # Flag for if the teams were flipped
             "flipped": torch.tensor(flipped, dtype=torch.bool),

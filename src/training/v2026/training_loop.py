@@ -3,6 +3,9 @@ Training loop function
 --------------------------------------------------------------------------------
 `src.training.v2026.training_loop`
 
+TODO: Some of the loss computer arguments are the same; could do a shared dict
+      for that...
+
 """
 import torch, os, time
 
@@ -20,78 +23,19 @@ from  .epoch                   import run_epoch
 from  .metrics                 import print_epoch_summary, print_best_epoch
 from ..utils.loss.loss_tracker import TournamentLossComputer
 
-
 # Give it 20 epochs minimum before any scheduling or early stopping kicks in
 MIN_EPOCHS = 20
     
 
-# --------------------------------------------------------------------------------
-# Run epochs for each of the three DataLoaders
-# --------------------------------------------------------------------------------
-def run_loader_epochs(
-        model     : Module, 
-        optimizer : Optimizer,
-
-        # Book-keeping
-        cur_epoch  : int,
-        num_epochs : int,
-
-        # Epoch Arguments
-        primary_loss_computer   : TournamentLossComputer,
-        secondary_loss_computer : TournamentLossComputer,        
-        shared_args             : dict,
-
-        # DataLoaders
-        train_loader     : DataLoader, 
-        secondary_loader : DataLoader | None = None,
-        val_loader       : DataLoader | None = None,
-        *,
-        # Additional Config
-        verbose  : int  = 1,     # Whether or not to print a summary
-        training : bool = True,  # False when doing an initial epoch with training off
-    
-) -> tuple[dict, float]:
-    # 1) Train on regular season
-    t0 = time.perf_counter()
-    train_metrics = run_epoch(model, train_loader, primary_loss_computer, optimizer=(optimizer if training else None), **shared_args)
-
-    # 2) Secondary tournament games (classification-only; no box-scores provided)
-    if secondary_loader is not None: secondary_metrics = run_epoch(model, secondary_loader, secondary_loss_computer, **shared_args)
-    else:                            secondary_metrics = {}
-
-    # 3) Validation (NCAA tournament)
-    if val_loader is not None: val_metrics = run_epoch(model, val_loader, primary_loss_computer, **shared_args)
-    else:                      val_metrics = {}
-
-    # Print summary
-    if verbose: print_epoch_summary(cur_epoch, num_epochs+1, train_metrics, secondary_metrics, val_metrics)
-
-    # Update history
-    epoch_history = {
-        "epoch"     : cur_epoch,
-        "train"     : train_metrics,
-        "secondary" : secondary_metrics,
-        "val"       : val_metrics,
-        "trained"   : training,
-    }
-
-    # Timing
-    t1 = time.perf_counter()
-    epoch_time = t1 - t0
-
-    return epoch_history, epoch_time
-
-
 # ================================================================================
 # Training loop
 # ================================================================================
-def train_model_v2(
+def train_model(
         model: Module,
         train_loader,
         val_loader       = None,
         secondary_loader = None,
         *,
-
         # Training config
         history       : list | None = None,
         num_epochs    : int   = 10,
@@ -100,25 +44,31 @@ def train_model_v2(
         weight_decay  : float = 2e-6,
         first_epoch_no_train: bool = True,
 
-        # Loss config
-        box_loss_fn = None,
-        win_loss_fn = None,
-        box_loss_weight           : float = 1.0,
-        win_loss_weight           : float = 1.0,
-        secondary_win_loss_weight : float = 5.0,     # Secondary tournament data
-
-        # Extra loss config (for alternate models)
-        use_mean_var_loss: bool = False,
-
-        # Alpha-beta loss
-        use_alpha_beta    : bool  = True,
-        alpha_beta_weight : float = 0.0,
-
         # Optimizer & Scheduler
         optimizer               : Optimizer   | None = None,
         scheduler               : LRScheduler | None = None,
         early_stopping_patience : int         | None = None, # Early Stopping
         grad_clip_norm          : float       | None = None,
+
+        # Specific loss functions to use (not really used anymore due to more customized calculations)
+        box_loss_fn = None,
+        win_loss_fn = None,
+
+        # If False, skip the loss entirely
+        use_mean_var_loss: bool  = True,
+        use_alpha_beta    : bool = True,
+        use_margin_loss   : bool = False,
+
+        # Weights for each loss function (or task)
+        box_loss_weight    : float = 1.0,
+        win_loss_weight    : float = 4.0,
+        alpha_beta_weight  : float = 1.0,
+        margin_loss_weight : float = 1.0,
+
+        # Cauchy Loss Configuration 
+        # TODO: I think I will add other options here for all parts of the loss...
+        use_cauchy_margin  : bool = True,   # Toggle Cauchy for the margin
+        use_cauchy_nll     : bool = False,  # Standard or NLL version 
 
         # Logging
         verbose    : int = 1,
@@ -177,32 +127,34 @@ def train_model_v2(
     progress_bar = tqdm(total=total_batches, desc="Training", leave=True)
 
     # --------------------------------------------------------------------------------
-    # Define some shared epoch parameters
+    # Define Shared Loss Configuration Parameters for each Epoch
     # --------------------------------------------------------------------------------
-    # Regular Season / NCAA Tournament shared loss computer
-    primary_loss_computer = TournamentLossComputer(
+    # Shared loss parameters
+    shared_loss = dict(
         # Default loss functions
-        box_loss_fn=box_loss_fn, win_loss_fn=win_loss_fn,
+        box_loss_fn = box_loss_fn, 
+        win_loss_fn = win_loss_fn,
 
         # If False, skip the loss entirely
-        use_mean_var_loss=use_mean_var_loss, use_alpha_beta=use_alpha_beta, use_box_loss=True,
-        
-        # Weights for each loss function (or task)
-        box_loss_weight=box_loss_weight, win_loss_weight=win_loss_weight, alpha_beta_weight=alpha_beta_weight,
-    )
-
-    # Secondary Tournament loss computer (no box loss)
-    secondary_loss_computer = TournamentLossComputer(
-        # Default loss functions
-        box_loss_fn=box_loss_fn, win_loss_fn=win_loss_fn,
-
-        # If False, skip the loss entirely
-        use_mean_var_loss=use_mean_var_loss, use_alpha_beta=use_alpha_beta, use_box_loss=False,
+        # "use_box_loss" is different for the secondary tournament because there are no box scores
+        use_mean_var_loss = use_mean_var_loss, 
+        use_alpha_beta    = use_alpha_beta, 
+        use_margin_loss   = use_margin_loss,
 
         # Weights for each loss function (or task)
-        box_loss_weight=0.0, win_loss_weight=secondary_win_loss_weight, alpha_beta_weight=alpha_beta_weight, 
+        box_loss_weight    = box_loss_weight, 
+        win_loss_weight    = win_loss_weight, 
+        alpha_beta_weight  = alpha_beta_weight,
+        margin_loss_weight = margin_loss_weight,
+
+        # Cauchy Loss Configuration 
+        use_cauchy_margin  = use_cauchy_margin,   # Toggle Cauchy for the margin
+        use_cauchy_nll     = use_cauchy_nll,      # Standard or NLL version 
     )
 
+    # Regular Season / NCAA Tournament & Secondary Tournament loss handlers (no box loss)
+    primary_loss_computer   = TournamentLossComputer(use_box_loss=True,  **shared_loss)
+    secondary_loss_computer = TournamentLossComputer(use_box_loss=False, **shared_loss)
 
     # Shared epoch parameters
     shared = dict(device=device, progress_bar=progress_bar, grad_clip_norm=grad_clip_norm)
@@ -280,3 +232,60 @@ def train_model_v2(
         print(f"Best model saved to: {best_model_path}")
 
     return history
+
+
+# ================================================================================
+# Run epochs for each of the three DataLoaders
+# ================================================================================
+def run_loader_epochs(
+        model     : Module, 
+        optimizer : Optimizer,
+
+        # Book-keeping
+        cur_epoch  : int,
+        num_epochs : int,
+
+        # Epoch Arguments
+        primary_loss_computer   : TournamentLossComputer,
+        secondary_loss_computer : TournamentLossComputer,        
+        shared_args             : dict,
+
+        # DataLoaders
+        train_loader     : DataLoader, 
+        secondary_loader : DataLoader | None = None,
+        val_loader       : DataLoader | None = None,
+        *,
+        # Additional Config
+        verbose  : int  = 1,     # Whether or not to print a summary
+        training : bool = True,  # False when doing an initial epoch with training off
+    
+) -> tuple[dict, float]:
+    # 1) Train on regular season
+    t0 = time.perf_counter()
+    train_metrics = run_epoch(model, train_loader, primary_loss_computer, optimizer=(optimizer if training else None), **shared_args)
+
+    # 2) Secondary tournament games (classification-only; no box-scores provided)
+    if secondary_loader is not None: secondary_metrics = run_epoch(model, secondary_loader, secondary_loss_computer, **shared_args)
+    else:                            secondary_metrics = {}
+
+    # 3) Validation (NCAA tournament)
+    if val_loader is not None: val_metrics = run_epoch(model, val_loader, primary_loss_computer, **shared_args)
+    else:                      val_metrics = {}
+
+    # Print summary
+    if verbose: print_epoch_summary(cur_epoch, num_epochs+1, train_metrics, secondary_metrics, val_metrics)
+
+    # Update history
+    epoch_history = {
+        "epoch"     : cur_epoch,
+        "train"     : train_metrics,
+        "secondary" : secondary_metrics,
+        "val"       : val_metrics,
+        "trained"   : training,
+    }
+
+    # Timing
+    t1 = time.perf_counter()
+    epoch_time = t1 - t0
+
+    return epoch_history, epoch_time
