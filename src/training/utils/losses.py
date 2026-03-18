@@ -3,13 +3,15 @@ Custom training loss functions.
 --------------------------------------------------------------------------------
 `src.training.utils.losses`
 
+TODO: Move into the 'loss' subdirectory and update imports
+
 """
 import torch
 
 
-# --------------------------------------------------------------------------------
+# ================================================================================
 # Custom Negative Log-Likelihood loss for a Gaussian distribution.
-# --------------------------------------------------------------------------------
+# ================================================================================
 def gaussian_nll_loss(mu: torch.Tensor, target: torch.Tensor, log_var: torch.Tensor) -> torch.Tensor:
     """
     Model predicts mean and variance.
@@ -21,7 +23,6 @@ def gaussian_nll_loss(mu: torch.Tensor, target: torch.Tensor, log_var: torch.Ten
     
     # Return the mean loss across the batch
     return loss.mean()
-
 
 # ================================================================================
 # Evidential MSE Loss for binary classification using a Beta distribution.
@@ -66,27 +67,4 @@ def evidential_binary_loss(alpha_beta: torch.Tensor, target_win: torch.Tensor, g
     loss = torch.sum(focal_loss, dim=-1)
     
     return loss
-
-
-# ================================================================================
-# TODO: Get box score loss according to parameters
-# ================================================================================
-# More of a flexible helper for the `run_epoch` function
-def box_score_loss(
-        target_box_score: torch.tensor,
-        
-        box_score_pred: torch.tensor,
-        box_mu      : torch.tensor,
-        box_log_var: torch.tensor,
-
-        box_loss_fn,
-        device,
-
-        use_box_loss: bool = True,
-        use_mean_var_loss: bool = True,
-        
-):
-    if not use_box_loss: torch.zeros((), device=device)
-    pass
-
 
