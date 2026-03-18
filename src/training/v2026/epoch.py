@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from tqdm.auto import tqdm
 
 # From this project
-from ..utils.losses import gaussian_nll_loss
+from ..utils.losses import gaussian_nll_loss, evidential_binary_loss
 
 
 # --------------------------------------------------------------------------------
@@ -46,6 +46,10 @@ def run_epoch(
         # If False, skip the loss entirely
         use_box_loss      : bool = True,
         use_mean_var_loss : bool = False,
+
+        # Alpha-beta loss
+        use_alpha_beta    : bool  = True,
+        alpha_beta_weight : float = 0.0,
 
         # Optional gradient clipping
         grad_clip_norm: float | None = None,
@@ -89,10 +93,14 @@ def run_epoch(
         # 2) Forward pass
         # ================================================================================
         with torch.set_grad_enabled(is_training):
-            
+
             # Unpack differently depending on the model architecture
-            if use_mean_var_loss: (box_mu, box_log_var), win_logit = model(batch)
-            else:                 box_score_pred,        win_logit = model(batch)
+            if use_alpha_beta:
+                (box_mu, box_log_var), win_logit, alpha_beta = model(batch)
+
+            else:
+                if use_mean_var_loss: (box_mu, box_log_var), win_logit = model(batch)
+                else:                 box_score_pred,        win_logit = model(batch)
 
             # --------------------------------------------------------------------------------
             # Seed-Weighted Modifiers
@@ -131,17 +139,24 @@ def run_epoch(
             # --------------------------------------------------------------------------------
             # b) Box-Score Loss
             # --------------------------------------------------------------------------------
+            
             if use_box_loss: 
                 # Gaussian NLL Loss vs. Standard L1/Huber Loss for older models
                 if use_mean_var_loss: loss_box = gaussian_nll_loss(box_mu, target_box_score, box_log_var)
                 else:                 loss_box = box_loss_fn(box_score_pred, target_box_score)
             else:            
                 loss_box = torch.zeros((), device=device)
+            
+            # --------------------------------------------------------------------------------
+            # c) Alpha-Beta Loss
+            # --------------------------------------------------------------------------------
+            alpha_beta_raw  = evidential_binary_loss(alpha_beta, target_win, gamma=0.5)
+            alpha_beta_loss = (alpha_beta_raw * sample_weights).mean()
 
             # --------------------------------------------------------------------------------
-            # c) Combined Loss
+            # d) Combined Loss
             # --------------------------------------------------------------------------------
-            loss = (box_loss_weight * loss_box) + (win_loss_weight * loss_win)
+            loss = (box_loss_weight * loss_box) + (win_loss_weight * loss_win) + (alpha_beta_weight * alpha_beta_loss)
 
             # Backpropagation if training
             if is_training:

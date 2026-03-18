@@ -23,11 +23,12 @@ def gaussian_nll_loss(mu: torch.Tensor, target: torch.Tensor, log_var: torch.Ten
     return loss.mean()
 
 
-# --------------------------------------------------------------------------------
+# ================================================================================
 # Evidential MSE Loss for binary classification using a Beta distribution.
-# --------------------------------------------------------------------------------
-def evidential_binary_loss(alpha_beta: torch.Tensor, target_win: torch.Tensor) -> torch.Tensor:
+# ================================================================================
+def evidential_binary_loss(alpha_beta: torch.Tensor, target_win: torch.Tensor, gamma=0.5) -> torch.Tensor:
     """
+    [FOCAL]
     alpha_beta: Shape (Batch, 2) containing [alpha, beta]
     target_win: Shape (Batch,) containing 1.0 or 0.0
     """
@@ -39,14 +40,53 @@ def evidential_binary_loss(alpha_beta: torch.Tensor, target_win: torch.Tensor) -
     S = torch.sum(alpha_beta, dim=-1, keepdim=True)
     
     # 3) Expected Probabilities & Standard MSE (squared error)
-    p   = alpha_beta / S               # (B, 2)
+    p = alpha_beta / S                 # (B, 2)
     mse = (y - p) ** 2                 # (B, 2)   
     
     # 4) Beta Distribution Variance Penalty
     # This penalizes predicting high uncertainty when the network is wrong
     variance = (p * (1 - p)) / (S + 1.0)
     
+    # 5) Combine into the base evidential loss
+    base_loss = mse + variance         # (B, 2)
+    
+    # --------------------------------------------------------------------------------
+    # 6) FOCAL MODIFIER
+    # --------------------------------------------------------------------------------
+    # Calculate absolute error
+    error = torch.abs(y - p)           # (B, 2)
+    
+    # Calculate focal weight: Error^gamma
+    focal_weight = error ** gamma      # (B, 2)
+    
+    # Apply the focal weight to the base loss
+    focal_loss = base_loss * focal_weight
+    
     # Sum the errors across the two classes, then take the mean of the batch
-    loss = torch.sum(mse + variance, dim=-1)
-    return loss.mean()
+    loss = torch.sum(focal_loss, dim=-1)
+    
+    return loss
+
+
+# ================================================================================
+# TODO: Get box score loss according to parameters
+# ================================================================================
+# More of a flexible helper for the `run_epoch` function
+def box_score_loss(
+        target_box_score: torch.tensor,
+        
+        box_score_pred: torch.tensor,
+        box_mu      : torch.tensor,
+        box_log_var: torch.tensor,
+
+        box_loss_fn,
+        device,
+
+        use_box_loss: bool = True,
+        use_mean_var_loss: bool = True,
+        
+):
+    if not use_box_loss: torch.zeros((), device=device)
+    pass
+
 

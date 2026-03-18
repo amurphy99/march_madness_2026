@@ -84,7 +84,10 @@ class MarchMadnessModel_v5(nn.Module):
         # Heads (mean+variance box score heads & simple win/loss head)
         self.box_score_mu      = nn.Linear(64, box_score_dim)
         self.box_score_log_var = nn.Linear(64, box_score_dim)
-        self.win_out           = nn.Linear(64, 1)
+        self.win_logit         = nn.Linear(64, 1)
+
+        # Evidential Head
+        self.win_evidence      = nn.Linear(64, 2)
 
     # ================================================================================
     # Encode the historical data with Cross-Attention
@@ -236,9 +239,18 @@ class MarchMadnessModel_v5(nn.Module):
         x = self.bn_2    (x)
         x = F.silu       (x)
 
+        # --------------------------------------------------------------------------------
         # Prediction Heads
+        # --------------------------------------------------------------------------------
+        # Box-Score (mean + variance)
         box_mu      = self.box_score_mu     (x)
         box_log_var = self.box_score_log_var(x)
-        win_logit   = self.win_out          (x).squeeze(-1)
- 
-        return (box_mu, box_log_var), win_logit
+
+        # Win Probability 
+        win_logit   = self.win_logit(x).squeeze(-1)
+
+        # Calculate alpha and beta
+        raw_evidence = self.win_evidence(x)
+        alpha_beta   = F.softplus(raw_evidence) + 1.0
+
+        return (box_mu, box_log_var), win_logit, alpha_beta

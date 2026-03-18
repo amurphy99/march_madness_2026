@@ -112,9 +112,15 @@ class MarchMadnessModel_v6(nn.Module):
         self.res_block1 = ResidualBlock(merged_dim, dropout)
         self.res_block2 = ResidualBlock(merged_dim, dropout)
 
+        # Box-Score Heads (mean + variance)
         self.box_mu      = nn.Linear(merged_dim, box_score_dim)
         self.box_log_var = nn.Linear(merged_dim, box_score_dim)
+        
+        # Win Probability Head
         self.win_logit   = nn.Linear(merged_dim, 1)
+
+        # Evidential Head
+        self.win_evidence = nn.Linear(64, 2)
 
     # ================================================================================
     # 4-Way Cross-Attention
@@ -208,10 +214,16 @@ class MarchMadnessModel_v6(nn.Module):
         x = self.res_block1(x)
         x = self.res_block2(x)
 
+        # --------------------------------------------------------------------------------
         # 6) Prediction Heads
+        # --------------------------------------------------------------------------------
         box_mu      = self.box_mu     (x)
         box_log_var = self.box_log_var(x)
         win_logit   = self.win_logit  (x).squeeze(-1)
 
-        return (box_mu, box_log_var), win_logit
+        # Calculate alpha and beta
+        raw_evidence = self.win_evidence(x)
+        alpha_beta   = F.softplus(raw_evidence) + 1.0
+
+        return (box_mu, box_log_var), win_logit, alpha_beta
     

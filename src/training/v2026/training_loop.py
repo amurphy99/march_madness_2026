@@ -107,6 +107,10 @@ def train_model_v2(
         # Extra loss config (for alternate models)
         use_mean_var_loss: bool = False,
 
+        # Alpha-beta loss
+        use_alpha_beta    : bool  = True,
+        alpha_beta_weight : float = 0.0,
+
         # Optimizer & Scheduler
         optimizer               : Optimizer   | None = None,
         scheduler               : LRScheduler | None = None,
@@ -175,6 +179,7 @@ def train_model_v2(
     shared = dict(
         device=device, progress_bar=progress_bar, box_loss_fn=box_loss_fn, win_loss_fn=win_loss_fn,
         grad_clip_norm=grad_clip_norm, use_mean_var_loss=use_mean_var_loss,
+        use_alpha_beta=use_alpha_beta, alpha_beta_weight=alpha_beta_weight,
     )
 
     # Regular season and NCAA tournament shared

@@ -29,23 +29,36 @@ class MarchMadnessModel_v7(nn.Module):
         super(MarchMadnessModel_v7, self).__init__()
         self.dropout = dropout
         
-        # Embeddings
+        # --------------------------------------------------------------------------------
+        # 1) Embeddings
+        # --------------------------------------------------------------------------------
         self.team_embedding = nn.Embedding(num_teams, team_embed_dim)
         self.seed_embedding = nn.Embedding(num_seeds, seed_embed_dim)
 
         in_dim = (team_embed_dim + seed_embed_dim) * 2
 
-        # MLP backbone with batch norm
+        # --------------------------------------------------------------------------------
+        # 2) MLP backbone with batch norm
+        # --------------------------------------------------------------------------------
         self.linear_1 = nn.Linear(in_dim, middle_dim)
         self.bn_1     = nn.BatchNorm1d(middle_dim)
 
         self.linear_2 = nn.Linear(middle_dim, 64)
         self.bn_2     = nn.BatchNorm1d(64)
 
-        # Heads (mean+variance box score heads & simple win/loss head)
+        # --------------------------------------------------------------------------------
+        # 3) Heads
+        # --------------------------------------------------------------------------------
+        # Box-Score Heads (mean + variance)
         self.box_score_mu      = nn.Linear(64, BOX_SCORE_DIM)
         self.box_score_log_var = nn.Linear(64, BOX_SCORE_DIM)
-        self.win_out           = nn.Linear(64, 1)
+        
+        # Win Probability Head
+        self.win_logit   = nn.Linear(64, 1)
+
+        # Evidential Head
+        self.win_evidence = nn.Linear(64, 2)
+
         
     # ================================================================================
     # Forward pass 
@@ -80,11 +93,18 @@ class MarchMadnessModel_v7(nn.Module):
         x = self.bn_2    (x)
         x = F.relu       (x)
 
-        # 5) Prediction Heads (mean+variance box score heads & simple win/loss head)
+        # --------------------------------------------------------------------------------
+        # 5) Prediction Heads
+        # --------------------------------------------------------------------------------
+        # Box-Score (mean + variance)
         box_mu      = self.box_score_mu     (x)
         box_log_var = self.box_score_log_var(x)
-        win_logit   = self.win_out          (x).squeeze(-1)
 
-        # Return the box score predictions as a tuple
-        return (box_mu, box_log_var), win_logit
+        # Win Probability 
+        win_logit   = self.win_logit(x).squeeze(-1)
 
+        # Calculate alpha and beta
+        raw_evidence = self.win_evidence(x)
+        alpha_beta   = F.softplus(raw_evidence) + 1.0
+
+        return (box_mu, box_log_var), win_logit, alpha_beta
