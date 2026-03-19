@@ -13,7 +13,8 @@ TODO: Edit VSCode settings to make it so that some of this stuff is still blue,
 # --------------------------------------------------------------------------------
 # Data Columns
 # --------------------------------------------------------------------------------
-TEAM_BOX_SCORE_COLUMNS = ["Score", "2FGM", "2FGA", "3FGM", "3FGA", "FTM", "FTA", "OR", "DR", "Ast", "TO", "Stl", "Blk", "PF"]
+# Taking the "Score" column out for now -- it should be able to figure that out on its own...
+TEAM_BOX_SCORE_COLUMNS = ["2FGM", "2FGA", "3FGM", "3FGA", "FTM", "FTA", "OR", "DR", "Ast", "TO", "Stl", "Blk", "PF"]
 
 W_TEAM_STAT_COLS = [f"W{stat}" for stat in TEAM_BOX_SCORE_COLUMNS]
 L_TEAM_STAT_COLS = [f"L{stat}" for stat in TEAM_BOX_SCORE_COLUMNS]
@@ -44,7 +45,7 @@ POINT_COL_IDX = {
 DEFAULT_PAST_YEARS = 10
 
 # Number of previous games to store in each team's history
-DEFAULT_HISTORY_LEN = 10
+DEFAULT_HISTORY_LEN = 20 # 10
 
 
 # --------------------------------------------------------------------------------
