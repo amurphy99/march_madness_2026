@@ -12,7 +12,7 @@ TODO: I REALLY want to rename this to "LossHandler" everywhere...
 
 """
 import torch
-import torch.nn as nn
+import torch.nn            as nn
 import torch.nn.functional as F
 
 # From this project
@@ -45,6 +45,7 @@ class TournamentLossComputer(nn.Module):
         margin_loss_weight : float = 1.0,
 
         # Cauchy Loss Configuration 
+        use_cauchy_box     : bool = False,  # Toggle Cauchy for the full box score
         use_cauchy_margin  : bool = True,   # Toggle Cauchy for the margin
         use_cauchy_nll     : bool = False,  # Standard or NLL version 
 
@@ -70,9 +71,11 @@ class TournamentLossComputer(nn.Module):
         self.margin_loss_weight = margin_loss_weight
 
         # Cauchy loss configuration
+        self.use_cauchy_box    = use_cauchy_box
         self.use_cauchy_margin = use_cauchy_margin
         self.use_cauchy_nll    = use_cauchy_nll
-        self.cauchy_loss_fn    = CauchyLoss()       # Initialize the torch module version
+        self.cauchy_loss_fn    = CauchyLoss(reduction="mean") # Initialize the torch module version
+        self.cauchy_loss_none  = CauchyLoss(reduction="none") # Keep a no-reduction version for margin seed weights
 
         # Gamma value adjusts the "focal" modifier strength on the loss
         self.gamma = gamma
@@ -127,12 +130,18 @@ class TournamentLossComputer(nn.Module):
         loss_win = (loss_win_raw * sample_weights).mean()
 
         # --------------------------------------------------------------------------------
-        # 4) Box-Score Loss
+        # 4) Box-Score Loss (negative log-likelihood loss)
         # --------------------------------------------------------------------------------
         loss_box = torch.zeros((), device=device)
-        if self.use_box_loss:
-            if self.use_mean_var_loss: loss_box = gaussian_nll_loss(box_pred, target_box_score, box_log_var)
-            else:                      loss_box = self.box_loss_fn (box_pred, target_box_score)
+        if self.use_box_loss:            
+            # Cauchy NLL Loss
+            if self.use_cauchy_box:
+                if self.use_mean_var_loss: loss_box = cauchy_nll_loss(target_box_score, box_pred, torch.exp(box_log_var), return_mean=True)
+                else:                      loss_box = self.cauchy_loss_fn(box_pred, target_box_score)
+            # Gaussian NLL Loss (or standard L1 loss)
+            else:
+                if self.use_mean_var_loss: loss_box = gaussian_nll_loss(box_pred, target_box_score, box_log_var)
+                else:                      loss_box = self.box_loss_fn (box_pred, target_box_score)
 
         # --------------------------------------------------------------------------------
         # 5) Alpha-Beta Loss
@@ -147,11 +156,12 @@ class TournamentLossComputer(nn.Module):
         # --------------------------------------------------------------------------------
         # TODO: Going to start with typical cauchy loss for now, not the mean-var version
         loss_margin = torch.zeros((), device=device)
+
+        # a) Get predictions and variance (getting it out here to avoid causing conflicts)
+        margin_pred, margin_std, _, _ = extract_points(box_pred, box_log_var)
+        margin_var = margin_std ** 2 
+
         if self.use_margin_loss:
-            # a) Get predictions and variance
-            margin_pred, margin_std, _, _ = extract_points(box_pred, box_log_var)
-            margin_var = margin_std ** 2 
-            
             # b) Calculate Loss
             if self.use_cauchy_margin:
                 # Use Cauchy Negative Log-Likelihood

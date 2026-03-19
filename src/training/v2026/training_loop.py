@@ -67,6 +67,7 @@ def train_model(
 
         # Cauchy Loss Configuration 
         # TODO: I think I will add other options here for all parts of the loss...
+        use_cauchy_box     : bool = False,
         use_cauchy_margin  : bool = True,   # Toggle Cauchy for the margin
         use_cauchy_nll     : bool = False,  # Standard or NLL version 
 
@@ -148,6 +149,7 @@ def train_model(
         margin_loss_weight = margin_loss_weight,
 
         # Cauchy Loss Configuration 
+        use_cauchy_box     = use_cauchy_box,
         use_cauchy_margin  = use_cauchy_margin,   # Toggle Cauchy for the margin
         use_cauchy_nll     = use_cauchy_nll,      # Standard or NLL version 
     )
