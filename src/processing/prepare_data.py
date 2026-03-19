@@ -46,7 +46,8 @@ def load_data(
     # 2) Apply additional processing methods (team-year ID creation, etc.)
     # --------------------------------------------------------------------------------
     # Convert the Season column to ints (if they aren't already), then get unique values and sort them
-    unique_seasons  = sorted(tr_df["Season"].astype(int).unique())
+    #unique_seasons  = sorted(tr_df["Season"].astype(int).unique())
+    unique_seasons  = sorted(rs_df["Season"].astype(int).unique())
     include_seasons = unique_seasons[-num_past_years:]
 
     # If given specific past years, use them; otherwise use data from the past X seasons
