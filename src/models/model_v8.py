@@ -83,7 +83,7 @@ class MarchMadnessModel_v8(nn.Module):
 
         # Final projection after attention
         self.hist_fc    = nn.Linear(team_embed_dim, dim_hist_out)
-        self.hist_fc_bn = nn.BatchNorm1d           (dim_hist_out)
+        self.hist_fc_bn = nn.LayerNorm             (dim_hist_out)
 
         # --------------------------------------------------------------------------------
         # Final fusion MLP 
@@ -93,11 +93,11 @@ class MarchMadnessModel_v8(nn.Module):
 
         # Linear pass #1
         self.linear_1 = nn.Linear(fusion_dim, middle_dim)
-        self.bn_1     = nn.BatchNorm1d       (middle_dim)
+        self.bn_1     = nn.LayerNorm         (middle_dim)
 
         # Linear pass #2
         self.linear_2 = nn.Linear(middle_dim, dim_outer)
-        self.bn_2     = nn.BatchNorm1d       (dim_outer)
+        self.bn_2     = nn.LayerNorm         (dim_outer)
 
         # --------------------------------------------------------------------------------
         # Prediction Heads
@@ -251,6 +251,6 @@ class MarchMadnessModel_v8(nn.Module):
 
         # Calculate alpha and beta
         raw_evidence = self.win_evidence(x)
-        alpha_beta   = F.softplus(raw_evidence) + 1.0
+        alpha_beta   = F.softplus(raw_evidence) + 2.5e-2 # 1.0
 
         return (box_mu, box_log_var), win_logit, alpha_beta

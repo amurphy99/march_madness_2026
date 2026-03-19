@@ -10,6 +10,10 @@ TODO: Could also add specific "target_A_points" and "target_B_points" to the los
 
 TODO: I REALLY want to rename this to "LossHandler" everywhere...
 
+TODO: Maybe add the warmup epochs thing. Take epochs as input, and set a minimum
+      to like 20. Scale the other losses by how far we are into training. At 20
+      epochs and on it is always the full loss weight.
+
 """
 import torch
 import torch.nn            as nn
@@ -50,7 +54,7 @@ class TournamentLossComputer(nn.Module):
         use_cauchy_nll     : bool = False,  # Standard or NLL version 
 
         # Gamma value adjusts the "focal" modifier strength on the loss
-        gamma : float = 0.5,  # gamma=1.0 means we are cubing the error instead of squaring it
+        gamma : float = -0.25,  # gamma=1.0 means we are cubing the error instead of squaring it
     ):
         super().__init__()
 
@@ -148,8 +152,11 @@ class TournamentLossComputer(nn.Module):
         # --------------------------------------------------------------------------------
         loss_alpha_beta = torch.zeros((), device=device)
         if self.use_alpha_beta:
-            alpha_beta_raw = evidential_binary_loss(alpha_beta, target_win, gamma=self.gamma)
+            alpha_beta_raw, ab_win_proba = evidential_binary_loss(alpha_beta, target_win.squeeze(-1), gamma=self.gamma)
             loss_alpha_beta = (alpha_beta_raw * sample_weights).mean()
+
+        # Set the win_proba to use to the one from the alpha-beta head
+        win_proba = ab_win_proba
 
         # --------------------------------------------------------------------------------
         # 6) Points Margin Loss (Cauchy / NLL)

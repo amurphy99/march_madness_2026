@@ -101,7 +101,9 @@ def run_epoch(
         batch_acc     = batch_correct / batch_size
         win_acc_meter.update(batch_acc, batch_size)
 
+        # --------------------------------------------------------------------------------
         # MSE on probability predictions for logging
+        # --------------------------------------------------------------------------------
         batch_win_mse = F.mse_loss(win_prob, win_target, reduction="mean").item()
         win_mse_meter.update(batch_win_mse, batch_size)
 

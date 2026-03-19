@@ -19,9 +19,10 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data         import DataLoader
 
 # From this project
-from  .epoch                   import run_epoch
-from  .metrics                 import print_epoch_summary, print_best_epoch
-from ..utils.loss.loss_tracker import TournamentLossComputer
+from   .epoch                   import run_epoch
+from   .metrics                 import print_epoch_summary, print_best_epoch
+from  ..utils.loss.loss_tracker import TournamentLossComputer
+from ...utils.random_seed       import set_seeds
 
 # Give it 20 epochs minimum before any scheduling or early stopping kicks in
 MIN_EPOCHS = 20
@@ -90,6 +91,7 @@ def train_model(
     - `val_loader`       => NCAA tournament games; all games included twice, once with teams in each order.
     - `secondary_loader` => Secondary tournament games; no box score data available
     """
+    set_seeds()
     if history is None: history = []
     total_time = 0
 
