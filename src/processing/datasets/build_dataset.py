@@ -32,13 +32,17 @@ class MarchMadnessHistoryDataset(Dataset):
         data    : MarchMadnessPackedData,
         indices : np.ndarray | list[int] | None = None,
         *,
-        training  : bool  = True,
-        flip_prob : float = 0.5,
+        flip_prob  : float = 0.5,
+        training   : bool  = True,
+        predicting : bool  = False,
     ):
-        # Data & config
-        self.data      = data
-        self.training  = training
-        self.flip_prob = flip_prob
+        # Data
+        self.data = data
+
+        # Configuration
+        self.flip_prob  = flip_prob
+        self.training   = training
+        self.predicting = predicting
 
         # Data indices
         if indices is None: self.indices = np.arange (data.num_examples, dtype=np.int64)
@@ -46,8 +50,8 @@ class MarchMadnessHistoryDataset(Dataset):
 
     # Double the dataset size during validation for deterministic flipping
     def __len__(self) -> int:
-        if self.training: return len(self.indices)
-        else:             return len(self.indices) * 2
+        if self.training or self.predicting: return len(self.indices)
+        else:                                return len(self.indices) * 2
 
     # ================================================================================
     # Sampling
@@ -56,9 +60,17 @@ class MarchMadnessHistoryDataset(Dataset):
         # --------------------------------------------------------------------------------
         # Determine actual index and whether to flip
         # --------------------------------------------------------------------------------
+        # Randomly flip training inputs (50% chance)
         if self.training:
             idx     = int(self.indices[i])
             do_flip = random.random() < self.flip_prob
+
+        # Never flip prediction inputs
+        elif self.predicting:
+            idx     = int(self.indices[i])
+            do_flip = False
+        
+        # Automatically flip evaluation data 
         else:
             # Map index to data, and deterministically flip every odd index
             idx = int(self.indices[i // 2])
